@@ -14,7 +14,7 @@
         </div>
 
         <!-- 🧱 CONTENIDO (LOGIN) -->
-        <main class="relative z-10 w-full max-w-[480px] px-6">
+        <main class="relative z-10 w-full max-w-120 px-6">
         <slot />
         </main>
 
