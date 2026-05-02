@@ -24,7 +24,7 @@ const showPassword = ref(false)
             <!-- Usuario -->
             <div>
             <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                Usuario / Identificador
+                Email
             </label>
             <div class="relative">
                 <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
@@ -35,7 +35,7 @@ const showPassword = ref(false)
                 <input
                 v-model="username"
                 type="text"
-                placeholder="Ingresa tu ID"
+                placeholder="Ingresa tu Email"
                 class="w-full h-11 pl-9 pr-3 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-700
                         placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent transition"
                 />
@@ -48,9 +48,6 @@ const showPassword = ref(false)
                 <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Contraseña
                 </label>
-                <button type="button" class="text-xs font-medium hover:underline" style="color: #1a5fa8;">
-                ¿Olvidaste tu contraseña?
-                </button>
             </div>
             <div class="relative">
                 <span class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
