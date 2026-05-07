@@ -3,43 +3,13 @@ import type { UserRole } from '@/stores/auth'
 
 const adminNav: NavItem[] = [
     { label: 'Dashboard', icon: 'grid', to: '/admin/dashboard' },
-    {
-        label: 'Vehículos', icon: 'truck',
-        children: [
-        { label: 'Lista de vehículos', to: '/admin/vehiculos' },
-        { label: 'Agregar vehículo', to: '/admin/vehiculos/nuevo' },
-        ],
-    },
-    {
-        label: 'Conductores', icon: 'users',
-        children: [
-        { label: 'Lista de conductores', to: '/admin/conductores' },
-        { label: 'Agregar conductor', to: '/admin/conductores/nuevo' },
-        ],
-    },
+    { label: 'Vehículos', icon: 'truck', to: '/admin/vehiculos' },
+    { label: 'Conductores', icon: 'users', to: '/admin/conductores' },
     { label: 'Asignaciones', icon: 'link', to: '/admin/asignaciones' },
-    {
-        label: 'Mantenimiento', icon: 'wrench',
-        children: [
-        { label: 'Órdenes activas', to: '/admin/mantenimiento' },
-        { label: 'Historial', to: '/admin/mantenimiento/historial' },
-        ],
-    },
-    {
-        label: 'Alertas', icon: 'bell',
-        children: [
-        { label: 'Alertas activas', to: '/admin/alertas' },
-        { label: 'Configurar', to: '/admin/alertas/config' },
-        ],
-    },
+    { label: 'Mantenimiento', icon: 'wrench', to: '/admin/mantenimiento' },
+    { label: 'Alertas', icon: 'bell', to: '/admin/alertas' },
     { label: 'Auditoría', icon: 'file-text', to: '/admin/auditoria' },
-    {
-        label: 'Usuarios', icon: 'user-cog',
-        children: [
-        { label: 'Gestionar usuarios', to: '/admin/usuarios' },
-        { label: 'Roles y permisos', to: '/admin/usuarios/roles' },
-        ],
-    },
+    { label: 'Usuarios', icon: 'user-cog', to: '/admin/usuarios' },
 ]
 
 const coordinatorNav: NavItem[] = [
