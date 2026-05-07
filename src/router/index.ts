@@ -25,14 +25,16 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminDashboardView.vue'),
         },
         {
-          path: 'vehiculos',
+          path: '/admin/vehiculos',
           name: 'admin-vehiculos',
           component: () => import('@/views/admin/VehiculosView.vue'),
+          meta: { requiresAuth: true, role: 'admin' },
         },
         {
-          path: 'conductores',
+          path: '/admin/conductores',
           name: 'admin-conductores',
           component: () => import('@/views/admin/ConductoresView.vue'),
+          meta: { requiresAuth: true, role: 'admin' },
         },
         {
           path: 'asignaciones',
