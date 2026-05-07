@@ -228,7 +228,7 @@ const typeBadgeClass: Record<MaintenanceType, string> = {
             <p class="text-xs text-slate-400">
                 {{ (row as MaintenanceRecord).vehiculoMarca }} {{ (row as MaintenanceRecord).vehiculoModelo }}
             </p>
-            <p class="text-xs text-slate-400 mt-0.5 truncate max-w-[180px]" :title="(row as MaintenanceRecord).descripcion">
+            <p class="text-xs text-slate-400 mt-0.5 truncate max-w-45" :title="(row as MaintenanceRecord).descripcion">
                 {{ (row as MaintenanceRecord).descripcion }}
             </p>
             </div>
