@@ -3,10 +3,12 @@ import { ref, computed } from 'vue'
 import type { Assignment, AssignmentFormData, AssignmentCloseData } from '@/types'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
+import { useAuditStore } from '@/stores/audit'
 
 export const useAssignmentsStore = defineStore('assignments', () => {
     const vehiclesStore = useVehiclesStore()
     const driversStore  = useDriversStore()
+    const auditStore = useAuditStore()
 
     const assignments = ref<Assignment[]>([
     {
@@ -99,118 +101,132 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         const vehicle = vehiclesStore.vehicles.find(v => v.id === data.vehiculoId)
         const driver  = driversStore.drivers.find(d => d.id === data.conductorId)
 
-    // REQ-22: validar vehículo
-    if (!vehicle) return { success: false, error: 'Vehículo no encontrado.' }
-    if (vehicle.estado !== 'Disponible')
-        return { success: false, error: `El vehículo ${vehicle.placa} no está Disponible (estado actual: ${vehicle.estado}).` }
-    if (!isDateValid(vehicle.fechaVencimientoSoat))
-        return { success: false, error: `El SOAT del vehículo ${vehicle.placa} está vencido. Renuévalo antes de asignar.` }
-    if (!isDateValid(vehicle.fechaVencimientoTecnomecanica))
-        return { success: false, error: `La Tecnomecánica del vehículo ${vehicle.placa} está vencida. Renuévala antes de asignar.` }
+        // REQ-22: validar vehículo
+        if (!vehicle) return { success: false, error: 'Vehículo no encontrado.' }
+        if (vehicle.estado !== 'Disponible')
+            return { success: false, error: `El vehículo ${vehicle.placa} no está Disponible (estado actual: ${vehicle.estado}).` }
+        if (!isDateValid(vehicle.fechaVencimientoSoat))
+            return { success: false, error: `El SOAT del vehículo ${vehicle.placa} está vencido. Renuévalo antes de asignar.` }
+        if (!isDateValid(vehicle.fechaVencimientoTecnomecanica))
+            return { success: false, error: `La Tecnomecánica del vehículo ${vehicle.placa} está vencida. Renuévala antes de asignar.` }
 
-    // REQ-23: validar conductor
-    if (!driver) return { success: false, error: 'Conductor no encontrado.' }
-    if (driver.estado !== 'Activo')
-        return { success: false, error: `El conductor ${driver.nombre} no está Activo (estado actual: ${driver.estado}).` }
-    if (driver.estadoLegal !== 'Vigente')
-        return { success: false, error: `La licencia del conductor ${driver.nombre} está ${driver.estadoLegal}. No puede ser asignado.` }
+        // REQ-23: validar conductor
+        if (!driver) return { success: false, error: 'Conductor no encontrado.' }
+        if (driver.estado !== 'Activo')
+            return { success: false, error: `El conductor ${driver.nombre} no está Activo (estado actual: ${driver.estado}).` }
+        if (driver.estadoLegal !== 'Vigente')
+            return { success: false, error: `La licencia del conductor ${driver.nombre} está ${driver.estadoLegal}. No puede ser asignado.` }
 
-    // REQ-25: crear registro histórico
-    const now = new Date().toISOString()
-    const newAssignment: Assignment = {
-        id: generateId(),
-        vehiculoId: vehicle.id,
-        vehiculoPlaca: vehicle.placa,
-        vehiculoMarca: vehicle.marca,
-        vehiculoModelo: vehicle.modelo,
-        conductorId: driver.id,
-        conductorNombre: driver.nombre,
-        conductorCedula: driver.cedula,
-        fechaInicio: now,
-        fechaFin: null,
-        kilometrajeInicio: vehicle.kilometraje,
-        kilometrajeFin: null,
-        usuarioResponsable: data.usuarioResponsable,
-        estado: 'Activa',
-    }
-    assignments.value.unshift(newAssignment)
+        // REQ-25: crear registro histórico
+        const now = new Date().toISOString()
+        const newAssignment: Assignment = {
+            id: generateId(),
+            vehiculoId: vehicle.id,
+            vehiculoPlaca: vehicle.placa,
+            vehiculoMarca: vehicle.marca,
+            vehiculoModelo: vehicle.modelo,
+            conductorId: driver.id,
+            conductorNombre: driver.nombre,
+            conductorCedula: driver.cedula,
+            fechaInicio: now,
+            fechaFin: null,
+            kilometrajeInicio: vehicle.kilometraje,
+            kilometrajeFin: null,
+            usuarioResponsable: data.usuarioResponsable,
+            estado: 'Activa',
+        }
+        assignments.value.unshift(newAssignment)
 
-    // REQ-26: actualizar estados en sus stores
-    const vIdx = vehiclesStore.vehicles.findIndex(v => v.id === vehicle.id)
-    vehiclesStore.vehicles[vIdx] = {
-        ...vehiclesStore.vehicles[vIdx]!,
-        estado: 'Asignado',
-        conductorAsignadoId: driver.id,
-        conductorAsignadoNombre: driver.nombre,
-        actualizadoEn: now,
-    }
-    const dIdx = driversStore.drivers.findIndex(d => d.id === driver.id)
-    driversStore.drivers[dIdx] = {
-        ...driversStore.drivers[dIdx]!,
-        estado: 'Asignado',
-        vehiculoAsignadoId: vehicle.id,
-        vehiculoAsignadoPlaca: vehicle.placa,
-        actualizadoEn: now,
-    }
-
-    return { success: true }
-    }
-
-function closeAssignment(id: string, data: AssignmentCloseData): { success: boolean; error?: string } {
-    const idx = assignments.value.findIndex(a => a.id === id)
-    if (idx === -1) return { success: false, error: 'Asignación no encontrada.' }
-
-    const assignment = assignments.value[idx]!
-    const vehicle = vehiclesStore.vehicles.find(v => v.id === assignment.vehiculoId)
-
-    // REQ-28: km final ≥ km actual
-    if (!vehicle) return { success: false, error: 'Vehículo no encontrado.' }
-    if (data.kilometrajeFin < vehicle.kilometraje)
-        return {
-            success: false,
-            error: `El kilometraje final (${data.kilometrajeFin} km) no puede ser menor al actual del vehículo (${vehicle.kilometraje} km).`,
+        // REQ-26: actualizar estados en sus stores
+        const vIdx = vehiclesStore.vehicles.findIndex(v => v.id === vehicle.id)
+        vehiclesStore.vehicles[vIdx] = {
+            ...vehiclesStore.vehicles[vIdx]!,
+            estado: 'Asignado',
+            conductorAsignadoId: driver.id,
+            conductorAsignadoNombre: driver.nombre,
+            actualizadoEn: now,
+        }
+        const dIdx = driversStore.drivers.findIndex(d => d.id === driver.id)
+        driversStore.drivers[dIdx] = {
+            ...driversStore.drivers[dIdx]!,
+            estado: 'Asignado',
+            vehiculoAsignadoId: vehicle.id,
+            vehiculoAsignadoPlaca: vehicle.placa,
+            actualizadoEn: now,
         }
 
-    const now = new Date().toISOString()
+        auditStore.log({
+        usuario: data.usuarioResponsable,
+        accion: 'CREAR_ASIGNACION',
+        entidad: `Vehículo ${vehicle.placa}`,
+        detalle: `Asignación creada: ${vehicle.placa} → ${driver.nombre}`,
+        })
 
-    // REQ-25: cerrar registro
-    assignments.value[idx] = {
-        ...assignment,
-        fechaFin: data.fechaFin,
-        kilometrajeFin: data.kilometrajeFin,
-        estado: 'Finalizada',
+        return { success: true }
+        }
+
+    function closeAssignment(id: string, data: AssignmentCloseData): { success: boolean; error?: string } {
+        const idx = assignments.value.findIndex(a => a.id === id)
+        if (idx === -1) return { success: false, error: 'Asignación no encontrada.' }
+
+        const assignment = assignments.value[idx]!
+        const vehicle = vehiclesStore.vehicles.find(v => v.id === assignment.vehiculoId)
+
+        // REQ-28: km final ≥ km actual
+        if (!vehicle) return { success: false, error: 'Vehículo no encontrado.' }
+        if (data.kilometrajeFin < vehicle.kilometraje)
+            return {
+                success: false,
+                error: `El kilometraje final (${data.kilometrajeFin} km) no puede ser menor al actual del vehículo (${vehicle.kilometraje} km).`,
+            }
+
+        const now = new Date().toISOString()
+
+        // REQ-25: cerrar registro
+        assignments.value[idx] = {
+            ...assignment,
+            fechaFin: data.fechaFin,
+            kilometrajeFin: data.kilometrajeFin,
+            estado: 'Finalizada',
+        }
+
+        // REQ-29: actualizar km y estados
+        
+        const vIdx = vehiclesStore.vehicles.findIndex(v => v.id === assignment.vehiculoId)
+        vehiclesStore.vehicles[vIdx] = {
+            ...vehiclesStore.vehicles[vIdx]!,
+            estado: 'Disponible',
+            kilometraje: data.kilometrajeFin,
+            conductorAsignadoId: null,
+            conductorAsignadoNombre: null,
+            actualizadoEn: now,
+        }
+        const dIdx = driversStore.drivers.findIndex(d => d.id === assignment.conductorId)
+        driversStore.drivers[dIdx] = {
+            ...driversStore.drivers[dIdx]!,
+            estado: 'Activo',
+            vehiculoAsignadoId: null,
+            vehiculoAsignadoPlaca: null,
+            actualizadoEn: now,
+        }
+
+        auditStore.log({
+        usuario: 'Admin',
+        accion: 'CERRAR_ASIGNACION',
+        entidad: `Vehículo ${assignment.vehiculoPlaca}`,
+        detalle: `Asignación finalizada. Km final: ${data.kilometrajeFin}`,
+        })
+
+        return { success: true }
     }
 
-    // REQ-29: actualizar km y estados
-    
-    const vIdx = vehiclesStore.vehicles.findIndex(v => v.id === assignment.vehiculoId)
-    vehiclesStore.vehicles[vIdx] = {
-        ...vehiclesStore.vehicles[vIdx]!,
-        estado: 'Disponible',
-        kilometraje: data.kilometrajeFin,
-        conductorAsignadoId: null,
-        conductorAsignadoNombre: null,
-        actualizadoEn: now,
-    }
-    const dIdx = driversStore.drivers.findIndex(d => d.id === assignment.conductorId)
-    driversStore.drivers[dIdx] = {
-        ...driversStore.drivers[dIdx]!,
-        estado: 'Activo',
-        vehiculoAsignadoId: null,
-        vehiculoAsignadoPlaca: null,
-        actualizadoEn: now,
-    }
-
-    return { success: true }
-}
-
-    return {
-        assignments,
-        activas,
-        historial,
-        porVehiculo,
-        porConductor,
-        createAssignment,
-        closeAssignment,
-    }
+        return {
+            assignments,
+            activas,
+            historial,
+            porVehiculo,
+            porConductor,
+            createAssignment,
+            closeAssignment,
+        }
 })

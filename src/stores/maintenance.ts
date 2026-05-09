@@ -3,8 +3,10 @@ import { ref, computed } from 'vue'
 import type { MaintenanceRecord, MaintenanceFormData, MaintenanceCloseData } from '@/types'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useAssignmentsStore } from '@/stores/assignments'
+import { useAuditStore } from '@/stores/audit'
 
 export const useMaintenanceStore = defineStore('maintenance', () => {
+    const auditStore = useAuditStore()
     const vehiclesStore    = useVehiclesStore()
     const assignmentsStore = useAssignmentsStore()
 
@@ -135,6 +137,13 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
         actualizadoEn: now,
         }
 
+        auditStore.log({
+            usuario: 'Admin',
+            accion: 'ABRIR_MANTENIMIENTO',
+            entidad: `Vehículo ${vehicle.placa}`,
+            detalle: `Mantenimiento ${data.tipo} abierto — ${data.descripcion} | Técnico: ${data.tecnico}`,
+        })
+
         return { success: true }
     }
 
@@ -166,6 +175,12 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
         actualizadoEn: now,
         }
 
+        auditStore.log({
+            usuario: 'Admin',
+            accion: 'CERRAR_MANTENIMIENTO',
+            entidad: `Vehículo ${record.vehiculoPlaca}`,
+            detalle: `Mantenimiento cerrado. Km salida: ${data.kilometrajeSalida}${data.comentariosCierre ? ` — ${data.comentariosCierre}` : ''}`,
+        })
         return { success: true }
     }
 

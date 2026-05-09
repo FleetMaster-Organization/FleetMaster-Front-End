@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Vehicle, VehicleFormData, VehicleStatus } from '@/types'
+import { useAuditStore } from '@/stores/audit'
 
 export const useVehiclesStore = defineStore('vehicles', () => {
+    const auditStore = useAuditStore()
     const vehicles = ref<Vehicle[]>([
         {
         id: 'v001', vin: '1HGBH41JXMN109186', placa: 'ABC-123',
@@ -159,6 +161,15 @@ export const useVehiclesStore = defineStore('vehicles', () => {
         actualizadoEn: now,
         }
         vehicles.value.unshift(newVehicle)
+        
+        // Auditoría
+        auditStore.log({
+            usuario: 'Admin',
+            accion: 'CREAR_VEHICULO',
+            entidad: `Vehículo ${data.placa}`,
+            detalle: `${data.marca} ${data.modelo} (${data.anio}) registrado con ${data.kilometraje} km`,
+        })
+
         return { success: true }
     }
 
@@ -189,6 +200,13 @@ export const useVehiclesStore = defineStore('vehicles', () => {
         placa: vehicle.placa,
         actualizadoEn: new Date().toISOString(),
         }
+
+        auditStore.log({
+            usuario: 'Admin',
+            accion: 'EDITAR_VEHICULO',
+            entidad: `Vehículo ${vehicle.placa}`,
+            detalle: `Información actualizada. Estado: ${data.estado ?? vehicle.estado} | Km: ${data.kilometraje}`,
+        })
         return { success: true }
     }
 
@@ -203,6 +221,15 @@ export const useVehiclesStore = defineStore('vehicles', () => {
         estado: 'Vendido',
         actualizadoEn: new Date().toISOString(),
         }
+
+        //Auditoría
+        auditStore.log({
+            usuario: 'Admin',
+            accion: 'INACTIVAR_VEHICULO',
+            entidad: `Vehículo ${vehicles.value[index].placa}`,
+            detalle: `Vehículo marcado como Vendido — inactivación lógica`,
+        })
+
         return { success: true }
     }
 

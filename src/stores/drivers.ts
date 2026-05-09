@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Driver, DriverFormData, LicenseStatusLegal } from '@/types'
+import { useAuditStore } from '@/stores/audit'
 
 function calcularEstadoLegal(fechaVencimiento: string): LicenseStatusLegal {
     const hoy = new Date()
@@ -14,6 +15,7 @@ function calcularEstadoLegal(fechaVencimiento: string): LicenseStatusLegal {
 }
 
 export const useDriversStore = defineStore('drivers', () => {
+    const auditStore = useAuditStore()
     const drivers = ref<Driver[]>([
         {
         id: 'd001', nombre: 'Diomedes Díaz', cedula: '10445231890',
@@ -126,6 +128,14 @@ export const useDriversStore = defineStore('drivers', () => {
         actualizadoEn: now,
         }
         drivers.value.unshift(newDriver)
+
+        auditStore.log({
+        usuario: 'Admin',
+        accion: 'CREAR_CONDUCTOR',
+        entidad: `Conductor ${data.nombre}`,
+        detalle: `Perfil creado. Licencia ${data.tipoLicencia} — vence ${data.fechaVencimientoLicencia}`,
+        })
+
         return { success: true }
     }
 
@@ -145,6 +155,14 @@ export const useDriversStore = defineStore('drivers', () => {
         estadoLegal: calcularEstadoLegal(data.fechaVencimientoLicencia), // REQ-17/18
         actualizadoEn: new Date().toISOString(),
         }
+
+        auditStore.log({
+        usuario: 'Admin',
+        accion: 'EDITAR_CONDUCTOR',
+        entidad: `Conductor ${driver.nombre}`,
+        detalle: `Información actualizada. Licencia vence: ${data.fechaVencimientoLicencia}`,
+        })
+
         return { success: true }
     }
 
@@ -160,6 +178,13 @@ export const useDriversStore = defineStore('drivers', () => {
         estado: 'Inactivo',
         actualizadoEn: new Date().toISOString(),
         }
+
+        auditStore.log({
+        usuario: 'Admin',
+        accion: 'INACTIVAR_CONDUCTOR',
+        entidad: `Conductor ${drivers.value[index].nombre}`,
+        detalle: 'Conductor inactivado — bloqueado para nuevas asignaciones',
+        })
         return { success: true }
     }
 
@@ -171,6 +196,14 @@ export const useDriversStore = defineStore('drivers', () => {
         estado: 'Activo',
         actualizadoEn: new Date().toISOString(),
         }
+
+        auditStore.log({
+            usuario: 'Admin',
+            accion: 'ACTIVAR_CONDUCTOR',
+            entidad: `Conductor ${drivers.value[index].nombre}`,
+            detalle: 'Conductor activado — disponible para asignaciones',
+        })
+
         return { success: true }
     }
 
