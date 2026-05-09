@@ -31,20 +31,26 @@ const colorMap: Record<string, string> = {
     Advertencia: 'bg-amber-100 text-amber-700 border-amber-200',
     Finalizada: 'bg-slate-100 text-slate-500 border-slate-200',
     Abierto: 'bg-amber-100 text-amber-700 border-amber-200',
-    Cerrado: 'bg-emerald-100 text-emerald-700 border-emerald-200',  
+    Cerrado: 'bg-emerald-100 text-emerald-700 border-emerald-200', 
+    'Vencido':    'bg-red-100 text-red-700 border-red-200',
+    'Gestionada': 'bg-slate-100 text-slate-500 border-slate-200',
+
 }
 
 const dotMap: Record<string, string> = {
     Disponible: 'bg-emerald-500', Activo: 'bg-emerald-500',
     Vigente: 'bg-emerald-500', Activa: 'bg-blue-500', Completado: 'bg-blue-500',
     Asignado: 'bg-blue-500',
-    Mantenimiento: 'bg-amber-500', 'Por vencer': 'bg-amber-500',
+    Mantenimiento: 'bg-amber-500',
     Pendiente: 'bg-amber-500', Advertencia: 'bg-amber-500',
     Vendido: 'bg-slate-400', Inactivo: 'bg-slate-400', Cancelado: 'bg-red-500',
     Vencida: 'bg-red-500', Crítico: 'bg-red-500',
     Finalizada: 'bg-slate-400',
     Abierto: 'bg-amber-500',
     Cerrado: 'bg-emerald-500',
+    'Vencido':    'bg-red-500',
+    'Por vencer': 'bg-amber-500',
+    'Gestionada': 'bg-slate-400',
 }
 
 const classes = colorMap[props.status] ?? 'bg-gray-100 text-gray-600 border-gray-200'
