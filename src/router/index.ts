@@ -42,19 +42,22 @@ const router = createRouter({
           component: () => import('@/views/admin/AsignacionesView.vue'),
         },
         {
-          path: 'alertas',
+          path: '/admin/alertas',
           name: 'admin-alertas',
           component: () => import('@/views/admin/AlertasView.vue'),
+          meta: { requiresAuth: true, role: 'admin' },
         },
         {
-          path: 'auditoria',
+          path: '/admin/auditoria',
           name: 'admin-auditoria',
           component: () => import('@/views/admin/AuditoriaView.vue'),
+          meta: { requiresAuth: true, role: 'admin' },
         },
         {
-          path: 'usuarios',
+          path: '/admin/usuarios',
           name: 'admin-usuarios',
           component: () => import('@/views/admin/UsuariosView.vue'),
+          meta: { requiresAuth: true, role: 'admin' },
         },
         {
           path: 'mantenimiento',
