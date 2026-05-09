@@ -29,14 +29,14 @@ export interface VehicleStatData {
 }
 
 // ─── Alerts ───────────────────────────────────────────────────
-export type AlertSeverity = 'critical' | 'warning' | 'info'
+export type DashboardAlertSeverity = 'critical' | 'warning' | 'info'
 
 export interface Alert {
     id: string
     title: string
     description: string
     daysLeft: number
-    severity: AlertSeverity
+    severity: DashboardAlertSeverity
 }
 
 // ─── Activity ─────────────────────────────────────────────────
@@ -188,4 +188,68 @@ export interface MaintenanceCloseData {
     kilometrajeSalida: number
     comentariosCierre?: string
     proximoMantenimiento?: string
+}
+
+// ── Alertas ───────────────────────────────────────────────────
+export type AlertSeverity = 'Vencido' | 'Por vencer'
+export type AlertStatus   = 'Pendiente' | 'Gestionada'
+export type AlertDocType  =
+    | 'SOAT'
+    | 'Tecnomecánica'
+    | 'Licencia de conducción'
+
+export interface SystemAlert {
+    id: string
+    tipo: AlertDocType
+    severidad: AlertSeverity
+    estado: AlertStatus
+    entidadTipo: 'vehiculo' | 'conductor'
+    entidadId: string
+    entidadNombre: string   // placa o nombre del conductor
+    fechaVencimiento: string 
+    diasRestantes: number    // negativo = ya vencido
+    gestionadaEn: string | null
+    gestionadaPor: string | null
+}
+
+// ── Auditoría ─────────────────────────────────────────────────
+export type AuditAction =
+    | 'CREAR_VEHICULO'    | 'EDITAR_VEHICULO'    | 'INACTIVAR_VEHICULO'
+    | 'CREAR_CONDUCTOR'   | 'EDITAR_CONDUCTOR'   | 'INACTIVAR_CONDUCTOR' | 'ACTIVAR_CONDUCTOR'
+    | 'CREAR_ASIGNACION'  | 'CERRAR_ASIGNACION'
+    | 'ABRIR_MANTENIMIENTO' | 'CERRAR_MANTENIMIENTO'
+    | 'GESTIONAR_ALERTA'
+    | 'CREAR_USUARIO'     | 'EDITAR_USUARIO'     | 'CAMBIAR_ROL'
+    | 'ACTIVAR_USUARIO'   | 'DESACTIVAR_USUARIO'
+
+export interface AuditLog {
+    id: string
+    fecha: string          
+    usuario: string
+    accion: AuditAction
+    entidad: string        
+    detalle: string        
+}
+
+// ── Usuarios ──────────────────────────────────────────────────
+export type UserRole   = 'Administrador' | 'Coordinador de flota' | 'Mecánico' | 'Despachador'
+export type UserStatus = 'Activo' | 'Inactivo'
+
+export interface AppUser {
+    id: string
+    nombreCompleto: string
+    email: string
+    passwordHash: string   
+    rol: UserRole
+    estado: UserStatus
+    creadoEn: string
+    actualizadoEn: string
+}
+
+export interface UserFormData {
+    nombreCompleto: string
+    email: string
+    password: string      
+    rol: UserRole
+    estado: UserStatus
 }
