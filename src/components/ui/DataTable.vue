@@ -28,8 +28,8 @@ const alignClass = (align?: string) => {
 </script>
 
 <template>
-    <div class="rounded-xl border border-slate-200 overflow-hidden bg-white">
-        <div class="overflow-x-auto">
+    <div class="rounded-xl border border-slate-200 bg-white">
+        <div class="overflow-x-auto rounded-xl">
         <table class="w-full text-sm">
             <thead>
             <tr class="bg-slate-50 border-b border-slate-200">
