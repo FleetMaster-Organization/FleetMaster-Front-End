@@ -28,13 +28,13 @@ const router = createRouter({
           path: '/admin/vehiculos',
           name: 'admin-vehiculos',
           component: () => import('@/views/admin/VehiculosView.vue'),
-          meta: { requiresAuth: true, role: 'admin' },
+          meta: { requiresAuth: true, role: 'admin' as UserRole },
         },
         {
           path: '/admin/conductores',
           name: 'admin-conductores',
           component: () => import('@/views/admin/ConductoresView.vue'),
-          meta: { requiresAuth: true, role: 'admin' },
+          meta: { requiresAuth: true, role: 'admin' as UserRole },
         },
         {
           path: 'asignaciones',
@@ -45,19 +45,19 @@ const router = createRouter({
           path: '/admin/alertas',
           name: 'admin-alertas',
           component: () => import('@/views/admin/AlertasView.vue'),
-          meta: { requiresAuth: true, role: 'admin' },
+          meta: { requiresAuth: true, role: 'admin' as UserRole },
         },
         {
           path: '/admin/auditoria',
           name: 'admin-auditoria',
           component: () => import('@/views/admin/AuditoriaView.vue'),
-          meta: { requiresAuth: true, role: 'admin' },
+          meta: { requiresAuth: true, role: 'admin' as UserRole },
         },
         {
           path: '/admin/usuarios',
           name: 'admin-usuarios',
           component: () => import('@/views/admin/UsuariosView.vue'),
-          meta: { requiresAuth: true, role: 'admin' },
+          meta: { requiresAuth: true, role: 'admin' as UserRole },
         },
         {
           path: 'mantenimiento',
@@ -115,23 +115,32 @@ const router = createRouter({
   ],
 })
 
-// ─── Navigation Guards ────────────────────────────────────────
-/*router.beforeEach((to, _from, next) => {
+// ─── Navigation Guard ─────────────────────────────────────────
+router.beforeEach((to, _from, next) => {
   const auth = useAuthStore()
   auth.restoreSession()
 
+  // Ruta protegida: debe estar autenticado
   if (to.meta.requiresAuth) {
-    if (!auth.isAuthenticated) return next('/login')
-    if (to.meta.role && auth.userRole !== to.meta.role) {
+    if (!auth.isAuthenticated) {
+      return next('/login')
+    }
+
+    // Si la ruta tiene rol definido, verificar que coincida con el del usuario
+    // El rol de la ruta padre aplica a todos sus hijos que no lo sobreescriban
+    const requiredRole = to.meta.role as UserRole | undefined
+    if (requiredRole && auth.userRole !== requiredRole) {
+      // Redirigir al dashboard correcto del rol actual
       return next(ROLE_REDIRECT[auth.userRole!] ?? '/login')
     }
   }
 
+  // Ruta de invitado: si ya está autenticado, ir al dashboard
   if (to.meta.requiresGuest && auth.isAuthenticated) {
     return next(auth.dashboardRoute)
   }
 
   next()
-}) */
+})
 
 export default router
