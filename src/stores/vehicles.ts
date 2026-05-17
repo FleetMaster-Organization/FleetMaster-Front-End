@@ -1,256 +1,414 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Vehicle, VehicleFormData, VehicleStatus } from '@/types'
-import { useAuditStore } from '@/stores/audit'
+import type {
+    Vehicle,
+    VehicleDocument,
+    VehicleFormData,
+    VehicleEditFormData,
+    VehicleOperationalStatus,
+    VehicleAdministrativeStatus,
+    VehicleDocumentType,
+    DocumentLegalStatus,
+} from '@/types'
+import { useAuditStore } from './audit'
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Calcula el estado legal de un documento comparando su fecha de vencimiento
+ * con la fecha actual. No se persiste en BD (decisión de diseño vehicles_db).
+ *   - Vencido:    expiration_date < hoy
+ *   - Por vencer: expiration_date <= hoy + 30 días
+ *   - Vigente:    expiration_date > hoy + 30 días
+ */
+function calcDocumentLegalStatus(fechaVencimiento: string): DocumentLegalStatus {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const expiration = new Date(fechaVencimiento)
+    expiration.setHours(0, 0, 0, 0)
+    const diffDays = Math.ceil(
+        (expiration.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    )
+    if (diffDays < 0) return 'Vencido'
+    if (diffDays <= 30) return 'Por vencer'
+    return 'Vigente'
+}
+
+function generateId(): string {
+    return `v_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+function generateDocId(): string {
+    return `vd_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+function isoNow(): string {
+    return new Date().toISOString()
+}
+
+// ── Store ────────────────────────────────────────────────────────────────────
 
 export const useVehiclesStore = defineStore('vehicles', () => {
-    const auditStore = useAuditStore()
+    const audit = useAuditStore()
+
+    // ── Estado ───────────────────────────────────────────────
     const vehicles = ref<Vehicle[]>([
+        // Datos de ejemplo
         {
-        id: 'v001', vin: '1HGBH41JXMN109186', placa: 'ABC-123',
-        marca: 'Toyota', modelo: 'Hilux', anio: 2021, tipo: 'Camión',
-        estado: 'Asignado', kilometraje: 45200,
-        conductorAsignadoId: 'd001', conductorAsignadoNombre: 'Diomedes Díaz',
-        fechaVencimientoSoat: '2025-06-15',
-        fechaVencimientoTecnomecanica: '2025-09-20',
-        creadoEn: '2024-01-10T08:00:00Z', actualizadoEn: '2025-01-15T10:30:00Z',
+            id: 'v1',
+            vin: '1HGCM82633A123456',
+            placa: 'ABC-123',
+            marca: 'Chevrolet',
+            modelo: 'NPR',
+            anio: 2021,
+            tipo: 'Camión',
+            estadoOperativo: 'Disponible',
+            estadoAdministrativo: 'Activo',
+            kilometraje: 45000,
+            conductorAsignadoId: null,
+            conductorAsignadoNombre: null,
+            documentos: [
+                {
+                    id: 'vd1',
+                    vehiculoId: 'v1',
+                    tipo: 'SOAT',
+                    fechaExpedicion: '2024-01-15',
+                    fechaVencimiento: '2025-01-15',
+                    estadoLegal: calcDocumentLegalStatus('2025-01-15'),
+                },
+                {
+                    id: 'vd2',
+                    vehiculoId: 'v1',
+                    tipo: 'TECNOMECANICA',
+                    fechaExpedicion: '2023-06-10',
+                    fechaVencimiento: '2025-06-10',
+                    estadoLegal: calcDocumentLegalStatus('2025-06-10'),
+                },
+            ],
+            creadoEn: '2024-01-15T08:00:00Z',
+            actualizadoEn: '2024-01-15T08:00:00Z',
         },
         {
-        id: 'v002', vin: '2T1BURHE0JC043821', placa: 'XYZ-789',
-        marca: 'Ford', modelo: 'Transit', anio: 2020, tipo: 'Van',
-        estado: 'Mantenimiento', kilometraje: 82400,
-        conductorAsignadoId: null, conductorAsignadoNombre: null,
-        fechaVencimientoSoat: '2025-08-10',
-        fechaVencimientoTecnomecanica: '2025-11-05',
-        creadoEn: '2024-02-20T09:00:00Z', actualizadoEn: '2025-02-01T14:00:00Z',
-        },
-        {
-        id: 'v003', vin: '3VWFE21C04M000001', placa: 'DEF-456',
-        marca: 'Chevrolet', modelo: 'NPR', anio: 2022, tipo: 'Camión',
-        estado: 'Disponible', kilometraje: 18900,
-        conductorAsignadoId: null, conductorAsignadoNombre: null,
-        fechaVencimientoSoat: '2026-01-20',
-        fechaVencimientoTecnomecanica: '2026-03-15',
-        creadoEn: '2024-03-05T07:30:00Z', actualizadoEn: '2024-11-10T11:00:00Z',
-        },
-        {
-        id: 'v004', vin: '4T1BF3EK8AU118078', placa: 'GHI-012',
-        marca: 'Renault', modelo: 'Master', anio: 2019, tipo: 'Van',
-        estado: 'Asignado', kilometraje: 110500,
-        conductorAsignadoId: 'd003', conductorAsignadoNombre: 'Carlos López',
-        fechaVencimientoSoat: '2025-12-01',
-        fechaVencimientoTecnomecanica: '2026-02-28',
-        creadoEn: '2024-04-12T08:45:00Z', actualizadoEn: '2025-01-20T09:15:00Z',
-        },
-        {
-        id: 'v005', vin: '5YJSA1DN1DFP14705', placa: 'JKL-345',
-        marca: 'Honda', modelo: 'CB500', anio: 2023, tipo: 'Moto',
-        estado: 'Disponible', kilometraje: 5200,
-        conductorAsignadoId: null, conductorAsignadoNombre: null,
-        fechaVencimientoSoat: '2026-05-10',
-        fechaVencimientoTecnomecanica: '2026-07-22',
-        creadoEn: '2024-05-18T10:00:00Z', actualizadoEn: '2024-12-01T08:00:00Z',
-        },
-        {
-        id: 'v006', vin: '6FPAAAJD4EM227272', placa: 'MNO-678',
-        marca: 'Mercedes-Benz', modelo: 'Sprinter', anio: 2021, tipo: 'Van',
-        estado: 'Asignado', kilometraje: 63700,
-        conductorAsignadoId: 'd004', conductorAsignadoNombre: 'María García',
-        fechaVencimientoSoat: '2025-07-30',
-        fechaVencimientoTecnomecanica: '2025-10-14',
-        creadoEn: '2024-06-01T11:00:00Z', actualizadoEn: '2025-02-10T16:00:00Z',
-        },
-        {
-        id: 'v007', vin: '7MNFPAFW3DM001234', placa: 'PQR-901',
-        marca: 'Kenworth', modelo: 'T680', anio: 2018, tipo: 'Camión',
-        estado: 'Mantenimiento', kilometraje: 240000,
-        conductorAsignadoId: null, conductorAsignadoNombre: null,
-        fechaVencimientoSoat: '2025-09-05',
-        fechaVencimientoTecnomecanica: '2025-12-20',
-        creadoEn: '2024-07-22T07:00:00Z', actualizadoEn: '2025-03-01T12:00:00Z',
-        },
-        {
-        id: 'v008', vin: '8LDTG8285C0000001', placa: 'STU-234',
-        marca: 'Yamaha', modelo: 'FZ25', anio: 2022, tipo: 'Moto',
-        estado: 'Disponible', kilometraje: 12300,
-        conductorAsignadoId: null, conductorAsignadoNombre: null,
-        fechaVencimientoSoat: '2026-02-14',
-        fechaVencimientoTecnomecanica: '2026-04-30',
-        creadoEn: '2024-08-09T09:30:00Z', actualizadoEn: '2024-10-15T14:00:00Z',
-        },
-        {
-        id: 'v009', vin: '9BWZZZ377VT004251', placa: 'VWX-567',
-        marca: 'Hyundai', modelo: 'H350', anio: 2020, tipo: 'Bus',
-        estado: 'Disponible', kilometraje: 55000,
-        conductorAsignadoId: null, conductorAsignadoNombre: null,
-        fechaVencimientoSoat: '2025-11-18',
-        fechaVencimientoTecnomecanica: '2026-01-09',
-        creadoEn: '2024-09-14T08:15:00Z', actualizadoEn: '2024-12-20T10:00:00Z',
-        },
-        {
-        id: 'v010', vin: '1FTFW1ET5DFC10312', placa: 'YZA-890',
-        marca: 'Mazda', modelo: 'BT-50', anio: 2023, tipo: 'Camión',
-        estado: 'Vendido', kilometraje: 35000,
-        conductorAsignadoId: null, conductorAsignadoNombre: null,
-        fechaVencimientoSoat: '2024-08-01',
-        fechaVencimientoTecnomecanica: '2024-10-01',
-        creadoEn: '2023-10-01T07:00:00Z', actualizadoEn: '2024-09-01T12:00:00Z',
+            id: 'v2',
+            vin: '2T1BURHE0JC057348',
+            placa: 'XYZ-789',
+            marca: 'Toyota',
+            modelo: 'Hilux',
+            anio: 2022,
+            tipo: 'Automóvil',
+            estadoOperativo: 'En ruta',
+            estadoAdministrativo: 'Activo',
+            kilometraje: 28000,
+            conductorAsignadoId: 'd1',
+            conductorAsignadoNombre: 'Carlos Pérez',
+            documentos: [
+                {
+                    id: 'vd3',
+                    vehiculoId: 'v2',
+                    tipo: 'SOAT',
+                    fechaExpedicion: '2024-03-01',
+                    fechaVencimiento: '2026-05-20',
+                    estadoLegal: calcDocumentLegalStatus('2026-05-20'),
+                },
+                {
+                    id: 'vd4',
+                    vehiculoId: 'v2',
+                    tipo: 'TECNOMECANICA',
+                    fechaExpedicion: '2024-03-01',
+                    fechaVencimiento: '2026-03-01',
+                    estadoLegal: calcDocumentLegalStatus('2026-03-01'),
+                },
+            ],
+            creadoEn: '2024-03-01T09:00:00Z',
+            actualizadoEn: '2024-03-01T09:00:00Z',
         },
     ])
 
-    const isLoading = ref(false)
-    const error = ref<string | null>(null)
+    // ── Computed ─────────────────────────────────────────────
 
-    // Getters
-    const totalVehicles = computed(() => vehicles.value.length)
+    /** Vehículos activos (no vendidos) */
     const activeVehicles = computed(() =>
-        vehicles.value.filter(v => v.estado !== 'Vendido')
-    )
-    const byStatus = (status: VehicleStatus) =>
-        computed(() => vehicles.value.filter(v => v.estado === status))
-
-    const disponibles = computed(() =>
-        vehicles.value.filter(v => v.estado === 'Disponible')
-    )
-    const asignados = computed(() =>
-        vehicles.value.filter(v => v.estado === 'Asignado')
-    )
-    const enMantenimiento = computed(() =>
-        vehicles.value.filter(v => v.estado === 'Mantenimiento')
+        vehicles.value.filter(v => v.estadoAdministrativo !== 'Vendido')
     )
 
-    function generateId(): string {
-        return 'v' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+    const totalVehicles = computed(() => vehicles.value.length)
+    const availableVehicles = computed(() =>
+        vehicles.value.filter(v => v.estadoOperativo === 'Disponible').length
+    )
+    const inRouteVehicles = computed(() =>
+        vehicles.value.filter(v => v.estadoOperativo === 'En ruta').length
+    )
+    const inMaintenanceVehicles = computed(() =>
+        vehicles.value.filter(v => v.estadoOperativo === 'En mantenimiento').length
+    )
+    const soldVehicles = computed(() =>
+        vehicles.value.filter(v => v.estadoAdministrativo === 'Vendido').length
+    )
+
+    // ── Validaciones ─────────────────────────────────────────
+
+    /** REQ-06: VIN único */
+    function isVinUnique(vin: string, excludeId?: string): boolean {
+        return !vehicles.value.some(
+            v => v.vin.toUpperCase() === vin.toUpperCase() && v.id !== excludeId
+        )
     }
 
-    function vinExists(vin: string, excludeId?: string): boolean {
-        return vehicles.value.some(v => v.vin === vin && v.id !== excludeId)
+    /** REQ-06: Placa única */
+    function isPlacaUnique(placa: string, excludeId?: string): boolean {
+        return !vehicles.value.some(
+            v => v.placa.toUpperCase() === placa.toUpperCase() && v.id !== excludeId
+        )
     }
 
-    function placaExists(placa: string, excludeId?: string): boolean {
-        return vehicles.value.some(v => v.placa === placa && v.id !== excludeId)
-    }
+    // ── CRUD ──────────────────────────────────────────────────
 
-    function canChangeStatus(id: string): boolean {
-        const vehicle = vehicles.value.find(v => v.id === id)
-        if (!vehicle) return false
-        // Bloquear si tiene asignación activa
-        if (vehicle.conductorAsignadoId) return false
-        return true
-    }
-
-    function createVehicle(data: VehicleFormData): { success: boolean; error?: string } {
+    /**
+     * REQ-05, REQ-06, REQ-07, REQ-08
+     * Crea un vehículo nuevo con estado operativo "Disponible" y
+     * registra sus documentos SOAT y Tecnomecánica.
+     */
+    function createVehicle(
+        data: VehicleFormData,
+        usuarioResponsable: string
+    ): { ok: boolean; error?: string } {
+        // REQ-06
+        if (!isVinUnique(data.vin)) {
+            return { ok: false, error: 'El VIN ya existe en el sistema.' }
+        }
+        if (!isPlacaUnique(data.placa)) {
+            return { ok: false, error: 'La placa ya existe en el sistema.' }
+        }
+        // REQ-07
         if (data.kilometraje < 0) {
-        return { success: false, error: 'El kilometraje debe ser un valor positivo.' }
-        }
-        if (vinExists(data.vin)) {
-        return { success: false, error: `El VIN "${data.vin}" ya está registrado.` }
-        }
-        if (placaExists(data.placa)) {
-        return { success: false, error: `La placa "${data.placa}" ya está registrada.` }
+            return { ok: false, error: 'El kilometraje debe ser un valor positivo.' }
         }
 
-        const now = new Date().toISOString()
+        const id = generateId()
+        const now = isoNow()
+
+        const documentos: VehicleDocument[] = [
+            {
+                id: generateDocId(),
+                vehiculoId: id,
+                tipo: 'SOAT',
+                fechaExpedicion: data.soat.fechaExpedicion,
+                fechaVencimiento: data.soat.fechaVencimiento,
+                estadoLegal: calcDocumentLegalStatus(data.soat.fechaVencimiento),
+            },
+            {
+                id: generateDocId(),
+                vehiculoId: id,
+                tipo: 'TECNOMECANICA',
+                fechaExpedicion: data.tecnomecanica.fechaExpedicion,
+                fechaVencimiento: data.tecnomecanica.fechaVencimiento,
+                estadoLegal: calcDocumentLegalStatus(data.tecnomecanica.fechaVencimiento),
+            },
+        ]
+
         const newVehicle: Vehicle = {
-        ...data,
-        id: generateId(),
-        estado: 'Disponible', // REQ-08: siempre Disponible al crear
-        conductorAsignadoId: null,
-        conductorAsignadoNombre: null,
-        creadoEn: now,
-        actualizadoEn: now,
+            id,
+            vin: data.vin,
+            placa: data.placa,
+            marca: data.marca,
+            modelo: data.modelo,
+            anio: data.anio,
+            tipo: data.tipo,
+            estadoOperativo: 'Disponible',      // REQ-08
+            estadoAdministrativo: 'Activo',
+            kilometraje: data.kilometraje,
+            conductorAsignadoId: null,
+            conductorAsignadoNombre: null,
+            documentos,
+            creadoEn: now,
+            actualizadoEn: now,
         }
-        vehicles.value.unshift(newVehicle)
-        
-        // Auditoría
-        auditStore.log({
-            usuario: 'Admin',
+
+        vehicles.value.push(newVehicle)
+        audit.log({
+            usuario: usuarioResponsable,
             accion: 'CREAR_VEHICULO',
             entidad: `Vehículo ${data.placa}`,
-            detalle: `${data.marca} ${data.modelo} (${data.anio}) registrado con ${data.kilometraje} km`,
+            detalle: `VIN: ${data.vin}`,
         })
-
-        return { success: true }
+        return { ok: true }
     }
 
-    function updateVehicle(id: string, data: Omit<VehicleFormData, 'vin' | 'placa'>): { success: boolean; error?: string } {
-        const index = vehicles.value.findIndex(v => v.id === id)
-        if (index === -1) return { success: false, error: 'Vehículo no encontrado.' }
+    /**
+     * REQ-09, REQ-10
+     * Edita la información descriptiva y documentos legales del vehículo.
+     * Placa y VIN son inmutables.
+     */
+    function updateVehicle(
+        id: string,
+        data: VehicleEditFormData,
+        usuarioResponsable: string
+    ): { ok: boolean; error?: string } {
+        const vehicle = vehicles.value.find(v => v.id === id)
+        if (!vehicle) return { ok: false, error: 'Vehículo no encontrado.' }
 
+        // REQ-07
         if (data.kilometraje < 0) {
-        return { success: false, error: 'El kilometraje debe ser un valor positivo.' }
+            return { ok: false, error: 'El kilometraje debe ser un valor positivo.' }
         }
 
-        const vehicle = vehicles.value[index]!
+        vehicle.marca = data.marca
+        vehicle.modelo = data.modelo
+        vehicle.anio = data.anio
+        vehicle.tipo = data.tipo
+        vehicle.kilometraje = data.kilometraje
+        vehicle.estadoAdministrativo = data.estadoAdministrativo
+        vehicle.actualizadoEn = isoNow()
 
-        // REQ-11: bloquear cambio de estado si tiene asignación o mantenimiento abierto
-        if (data.estado !== vehicle.estado && !canChangeStatus(id)) {
-        return {
-            success: false,
-            error: 'No se puede cambiar el estado: el vehículo tiene una asignación activa.',
-        }
-        }
+        // Actualiza documentos
+        updateDocument(vehicle, 'SOAT', data.soat)
+        updateDocument(vehicle, 'TECNOMECANICA', data.tecnomecanica)
 
-        vehicles.value[index] = {
-        ...vehicle,
-        ...data,
-        // REQ-10: VIN y placa son inmutables
-        id: vehicle.id,
-        vin: vehicle.vin,
-        placa: vehicle.placa,
-        actualizadoEn: new Date().toISOString(),
-        }
-
-        auditStore.log({
-            usuario: 'Admin',
+        audit.log({
+            usuario: usuarioResponsable,
             accion: 'EDITAR_VEHICULO',
             entidad: `Vehículo ${vehicle.placa}`,
-            detalle: `Información actualizada. Estado: ${data.estado ?? vehicle.estado} | Km: ${data.kilometraje}`,
+            detalle: 'Datos actualizados',
         })
-        return { success: true }
+        return { ok: true }
     }
 
-    function sellVehicle(id: string): { success: boolean; error?: string } {
-        const index = vehicles.value.findIndex(v => v.id === id)
-        if (index === -1) return { success: false, error: 'Vehículo no encontrado.' }
-        if (!canChangeStatus(id)) {
-        return { success: false, error: 'No se puede inactivar: el vehículo tiene una asignación activa.' }
+    /** Actualiza o crea un documento de un tipo específico en el vehículo. */
+    function updateDocument(
+        vehicle: Vehicle,
+        tipo: VehicleDocumentType,
+        docData: { fechaExpedicion: string; fechaVencimiento: string }
+    ) {
+        const existing = vehicle.documentos.find(d => d.tipo === tipo)
+        if (existing) {
+            existing.fechaExpedicion = docData.fechaExpedicion
+            existing.fechaVencimiento = docData.fechaVencimiento
+            existing.estadoLegal = calcDocumentLegalStatus(docData.fechaVencimiento)
+        } else {
+            vehicle.documentos.push({
+                id: generateDocId(),
+                vehiculoId: vehicle.id,
+                tipo,
+                fechaExpedicion: docData.fechaExpedicion,
+                fechaVencimiento: docData.fechaVencimiento,
+                estadoLegal: calcDocumentLegalStatus(docData.fechaVencimiento),
+            })
         }
-        vehicles.value[index] = {
-        ...vehicles.value[index]!,
-        estado: 'Vendido',
-        actualizadoEn: new Date().toISOString(),
-        }
-
-        //Auditoría
-        auditStore.log({
-            usuario: 'Admin',
-            accion: 'INACTIVAR_VEHICULO',
-            entidad: `Vehículo ${vehicles.value[index].placa}`,
-            detalle: `Vehículo marcado como Vendido — inactivación lógica`,
-        })
-
-        return { success: true }
     }
 
-  // REQ-15: NO eliminar físicamente
-  // No existe deleteVehicle — solo sellVehicle (inactivación lógica)
+    /**
+     * REQ-11: Bloquea cambio de estado si hay asignación o mantenimiento abierto.
+     * REQ-14: Permite marcar como "Vendido" (inactivación lógica).
+     * REQ-15: No elimina físicamente el registro.
+     */
+    function changeAdministrativeStatus(
+        id: string,
+        newStatus: VehicleAdministrativeStatus,
+        usuarioResponsable: string,
+        hasOpenAssignment: boolean,
+        hasOpenMaintenance: boolean
+    ): { ok: boolean; error?: string } {
+        // REQ-11
+        if (hasOpenAssignment) {
+            return { ok: false, error: 'El vehículo tiene una asignación activa. Ciérrela primero.' }
+        }
+        if (hasOpenMaintenance) {
+            return { ok: false, error: 'El vehículo tiene un mantenimiento abierto. Ciérrelo primero.' }
+        }
+
+        const vehicle = vehicles.value.find(v => v.id === id)
+        if (!vehicle) return { ok: false, error: 'Vehículo no encontrado.' }
+
+        vehicle.estadoAdministrativo = newStatus
+        vehicle.actualizadoEn = isoNow()
+
+        if (newStatus === 'Vendido') {
+            audit.log({
+                usuario: usuarioResponsable,
+                accion: 'INACTIVAR_VEHICULO',
+                entidad: `Vehículo ${vehicle.placa}`,
+                detalle: 'Marcado como Vendido',
+            })
+        } else {
+            audit.log({
+                usuario: usuarioResponsable,
+                accion: 'EDITAR_VEHICULO',
+                entidad: `Vehículo ${vehicle.placa}`,
+                detalle: `Estado administrativo: ${newStatus}`,
+            })
+        }
+        return { ok: true }
+    }
+
+    /** Actualiza el estado operativo (usado por asignaciones y mantenimiento). */
+    function setOperationalStatus(id: string, status: VehicleOperationalStatus) {
+        const vehicle = vehicles.value.find(v => v.id === id)
+        if (vehicle) {
+            vehicle.estadoOperativo = status
+            vehicle.actualizadoEn = isoNow()
+        }
+    }
+
+    /** Vincula o desvincula un conductor al vehículo. */
+    function setAssignedDriver(
+        vehiculoId: string,
+        conductorId: string | null,
+        conductorNombre: string | null
+    ) {
+        const vehicle = vehicles.value.find(v => v.id === vehiculoId)
+        if (vehicle) {
+            vehicle.conductorAsignadoId = conductorId
+            vehicle.conductorAsignadoNombre = conductorNombre
+            vehicle.actualizadoEn = isoNow()
+        }
+    }
+
+    /** Actualiza el kilometraje (al cerrar asignación o mantenimiento). */
+    function updateKilometraje(vehiculoId: string, km: number) {
+        const vehicle = vehicles.value.find(v => v.id === vehiculoId)
+        if (vehicle && km > vehicle.kilometraje) {
+            vehicle.kilometraje = km
+            vehicle.actualizadoEn = isoNow()
+        }
+    }
+
+    /** Recalcula el estadoLegal de todos los documentos (útil al iniciar la app). */
+    function refreshDocumentStatuses() {
+        vehicles.value.forEach(vehicle => {
+            vehicle.documentos.forEach(doc => {
+                doc.estadoLegal = calcDocumentLegalStatus(doc.fechaVencimiento)
+            })
+        })
+    }
+
+    // ── Búsqueda (REQ-13) ────────────────────────────────────
+    function searchVehicles(query: string): Vehicle[] {
+        const q = query.trim().toUpperCase()
+        if (!q) return activeVehicles.value
+        return activeVehicles.value.filter(
+            v =>
+                v.placa.toUpperCase().includes(q) ||
+                v.vin.toUpperCase().includes(q)
+        )
+    }
 
     return {
         vehicles,
-        isLoading,
-        error,
-        totalVehicles,
         activeVehicles,
-        disponibles,
-        asignados,
-        enMantenimiento,
-        byStatus,
-        vinExists,
-        placaExists,
-        canChangeStatus,
+        totalVehicles,
+        availableVehicles,
+        inRouteVehicles,
+        inMaintenanceVehicles,
+        soldVehicles,
+        isVinUnique,
+        isPlacaUnique,
         createVehicle,
         updateVehicle,
-        sellVehicle,
+        changeAdministrativeStatus,
+        setOperationalStatus,
+        setAssignedDriver,
+        updateKilometraje,
+        refreshDocumentStatuses,
+        searchVehicles,
     }
 })

@@ -50,8 +50,31 @@ export interface ActivityItem {
 }
 
 // ─── Vehicle ──────────────────────────────────────────────────
-export type VehicleStatus = 'Disponible' | 'Asignado' | 'Mantenimiento' | 'Vendido'
+
+export type VehicleOperationalStatus =
+    | 'Disponible'
+    | 'En ruta'
+    | 'En mantenimiento'
+
+export type VehicleAdministrativeStatus =
+    | 'Activo'
+    | 'Inactivo'
+    | 'Vendido'
+
 export type VehicleType = 'Camión' | 'Van' | 'Moto' | 'Automóvil' | 'Bus'
+
+export type VehicleDocumentType = 'SOAT' | 'TECNOMECANICA'
+
+export type DocumentLegalStatus = 'Vigente' | 'Por vencer' | 'Vencido'
+
+export interface VehicleDocument {
+    id: string
+    vehiculoId: string
+    tipo: VehicleDocumentType           
+    fechaExpedicion: string             
+    fechaVencimiento: string            
+    estadoLegal: DocumentLegalStatus    
+}
 
 export interface Vehicle {
     id: string
@@ -61,40 +84,27 @@ export interface Vehicle {
     modelo: string
     anio: number
     tipo: VehicleType
-    estado: VehicleStatus
+    estadoOperativo: VehicleOperationalStatus
+    estadoAdministrativo: VehicleAdministrativeStatus
     kilometraje: number
     conductorAsignadoId: string | null
     conductorAsignadoNombre: string | null
-    fechaVencimientoSoat: string      
-    fechaVencimientoTecnomecanica: string
+    documentos: VehicleDocument[]
     creadoEn: string
     actualizadoEn: string
 }
 
-// ─── Driver ─────────────────────────────────────────────
-export type DriverStatus = 'Activo' | 'Inactivo' | 'Asignado'
-export type LicenseType = 'A1' | 'A2' | 'B1' | 'B2' | 'B3' | 'C1' | 'C2' | 'C3'
-export type LicenseStatusLegal = 'Vigente' | 'Vencida' | 'Por vencer'
-
-export interface Driver {
-    id: string
-    nombre: string
-    cedula: string
-    telefono: string
-    email: string
-    tipoLicencia: LicenseType
-    fechaVencimientoLicencia: string  
-    estadoLegal: LicenseStatusLegal   
-    estado: DriverStatus
-    vehiculoAsignadoId: string | null
-    vehiculoAsignadoPlaca: string | null
-    contactoEmergenciaNombre: string
-    contactoEmergenciaTelefono: string
-    creadoEn: string
-    actualizadoEn: string
+/**
+ * Helper: obtiene el documento de un tipo específico de un vehículo.
+ */
+export function getVehicleDocument(
+    vehicle: Vehicle,
+    tipo: VehicleDocumentType
+): VehicleDocument | undefined {
+    return vehicle.documentos.find(d => d.tipo === tipo)
 }
 
-// Para formularios (sin campos auto-calculados ni inmutables en edición)
+/** Formulario de creación de vehículo (REQ-05 a REQ-08) */
 export interface VehicleFormData {
     vin: string
     placa: string
@@ -102,22 +112,173 @@ export interface VehicleFormData {
     modelo: string
     anio: number
     tipo: VehicleType
-    estado: VehicleStatus
-    kilometraje: number
-    fechaVencimientoSoat: string
-    fechaVencimientoTecnomecanica: string
+    kilometraje: number                  
+    // Documentos: obligatorios al crear (REQ-05)
+    soat: {
+        fechaExpedicion: string
+        fechaVencimiento: string
+    }
+    tecnomecanica: {
+        fechaExpedicion: string
+        fechaVencimiento: string
+    }
 }
 
+/** Formulario de edición (placa y VIN no editables — REQ-10) */
+export interface VehicleEditFormData {
+    marca: string
+    modelo: string
+    anio: number
+    tipo: VehicleType
+    kilometraje: number
+    estadoAdministrativo: VehicleAdministrativeStatus
+    // Actualización de documentos legales (REQ-09)
+    soat: {
+        fechaExpedicion: string
+        fechaVencimiento: string
+    }
+    tecnomecanica: {
+        fechaExpedicion: string
+        fechaVencimiento: string
+    }
+}
+
+// ─── Driver ───────────────────────────────────────────────────
+
+export type DriverEmploymentStatus = 'ACTIVO' | 'INACTIVO' | 'RETIRADO'
+
+/**
+ * employment_substatus ENUM (drivers_db)
+ * Subestado laboral; la FK del driver apunta aquí.
+ * - Bajo ACTIVO: ACTIVO
+ * - Bajo INACTIVO: SUSPENDIDO | VACACIONES | INCAPACIDAD
+ * - Bajo RETIRADO: DESPEDIDO | RENUNCIA
+ */
+export type DriverEmploymentSubstatus =
+    | 'ACTIVO'
+    | 'SUSPENDIDO'
+    | 'VACACIONES'
+    | 'INCAPACIDAD'
+    | 'DESPEDIDO'
+    | 'RENUNCIA'
+
+export type LicenseCategory = 'A1' | 'A2' | 'B1' | 'B2' | 'B3' | 'C1' | 'C2' | 'C3'
+
+export type LicenseStatusLegal = 'Vigente' | 'Por vencer' | 'Vencida'
+
+/**
+ * Representa un registro de la tabla licenses (drivers_db).
+ * Un conductor puede tener múltiples categorías; cada una es un registro.
+ * UNIQUE constraint: (id_driver, category).
+ */
+export interface DriverLicense {
+    id: string
+    conductorId: string
+    categoria: LicenseCategory
+    fechaExpedicion: string         
+    fechaVencimiento: string        
+    estadoLegal: LicenseStatusLegal 
+}
+
+/**
+ * Representa un registro de emergency_contacts (drivers_db).
+ * Relación uno a muchos con drivers (REQ-16 exige al menos uno).
+ */
+export interface EmergencyContact {
+    id: string
+    conductorId: string
+    nombre: string
+    telefono: string
+    relacion?: string               // opcional: parentesco o rol
+}
+
+/**
+ * Entidad principal de la tabla drivers (drivers_db).
+ * - subestado: FK a employment_substatus (estado padre por JOIN)
+ * - licencias: JOIN con licenses (múltiples categorías)
+ * - contactosEmergencia: JOIN con emergency_contacts
+ */
+export interface Driver {
+    id: string
+    nombre: string
+    cedula: string                  
+    telefono: string
+    email: string
+    // Estado laboral (viene de JOIN employment_substatus → employment_status)
+    estadoLaboral: DriverEmploymentStatus
+    subestadoLaboral: DriverEmploymentSubstatus
+    // Asignación activa
+    vehiculoAsignadoId: string | null
+    vehiculoAsignadoPlaca: string | null
+    // Licencias (múltiples categorías — JOIN con licenses)
+    licencias: DriverLicense[]
+    // Contactos de emergencia (JOIN con emergency_contacts)
+    contactosEmergencia: EmergencyContact[]
+    creadoEn: string
+    actualizadoEn: string
+}
+
+/**
+ * Helper: obtiene la licencia más crítica del conductor
+ * (la que vence primero o la vencida más reciente).
+ */
+export function getPrimaryLicense(driver: Driver): DriverLicense | undefined {
+    if (!driver.licencias.length) return undefined
+    // Prioridad: Vencida > Por vencer > Vigente; dentro de cada grupo, la que vence antes
+    const priority: Record<LicenseStatusLegal, number> = {
+        Vencida: 0,
+        'Por vencer': 1,
+        Vigente: 2,
+    }
+    return [...driver.licencias].sort((a, b) => {
+        const pDiff = priority[a.estadoLegal] - priority[b.estadoLegal]
+        if (pDiff !== 0) return pDiff
+        return new Date(a.fechaVencimiento).getTime() - new Date(b.fechaVencimiento).getTime()
+    })[0]
+}
+
+/** Formulario de creación de conductor (REQ-16) */
 export interface DriverFormData {
     nombre: string
     cedula: string
     telefono: string
     email: string
-    tipoLicencia: LicenseType
-    fechaVencimientoLicencia: string
-    estado: DriverStatus
-    contactoEmergenciaNombre: string
-    contactoEmergenciaTelefono: string
+    estadoLaboral: DriverEmploymentStatus
+    subestadoLaboral: DriverEmploymentSubstatus
+    // Al menos una licencia obligatoria
+    licencias: Array<{
+        categoria: LicenseCategory
+        fechaExpedicion: string
+        fechaVencimiento: string
+    }>
+    // Al menos un contacto de emergencia obligatorio (REQ-16)
+    contactosEmergencia: Array<{
+        nombre: string
+        telefono: string
+        relacion?: string
+    }>
+}
+
+/** Formulario de edición (cédula no editable — REQ-19) */
+export interface DriverEditFormData {
+    nombre: string
+    telefono: string
+    email: string
+    estadoLaboral: DriverEmploymentStatus
+    subestadoLaboral: DriverEmploymentSubstatus
+    // Actualización de licencias: renovación actualiza registro existente por (id_driver, category)
+    licencias: Array<{
+        id?: string                 
+        categoria: LicenseCategory
+        fechaExpedicion: string
+        fechaVencimiento: string
+    }>
+    contactosEmergencia: Array<{
+        id?: string
+        nombre: string
+        telefono: string
+        relacion?: string
+    }>
 }
 
 // ── Asignaciones ─────────────────────────────────────────────
@@ -132,7 +293,7 @@ export interface Assignment {
     conductorId: string
     conductorNombre: string
     conductorCedula: string
-    fechaInicio: string        // ISO datetime
+    fechaInicio: string
     fechaFin: string | null
     kilometrajeInicio: number
     kilometrajeFin: number | null
@@ -163,13 +324,13 @@ export interface MaintenanceRecord {
     vehiculoModelo: string
     tipo: MaintenanceType
     descripcion: string
-    fechaIngreso: string       // ISO date, no futura
+    fechaIngreso: string
     fechaSalida: string | null
     kilometrajeIngreso: number
     kilometrajeSalida: number | null
     costo: number
     comentariosCierre: string | null
-    proximoMantenimiento: string | null  // solo informativo
+    proximoMantenimiento: string | null
     estado: MaintenanceStatus
     tecnico: string
 }
@@ -205,9 +366,9 @@ export interface SystemAlert {
     estado: AlertStatus
     entidadTipo: 'vehiculo' | 'conductor'
     entidadId: string
-    entidadNombre: string   // placa o nombre del conductor
-    fechaVencimiento: string 
-    diasRestantes: number    // negativo = ya vencido
+    entidadNombre: string
+    fechaVencimiento: string
+    diasRestantes: number
     gestionadaEn: string | null
     gestionadaPor: string | null
 }
@@ -224,11 +385,11 @@ export type AuditAction =
 
 export interface AuditLog {
     id: string
-    fecha: string          
+    fecha: string
     usuario: string
     accion: AuditAction
-    entidad: string        
-    detalle: string        
+    entidad: string
+    detalle: string
 }
 
 // ── Usuarios ──────────────────────────────────────────────────
@@ -239,7 +400,7 @@ export interface AppUser {
     id: string
     nombreCompleto: string
     email: string
-    passwordHash: string   
+    passwordHash: string
     rol: UserRole
     estado: UserStatus
     creadoEn: string
@@ -249,7 +410,7 @@ export interface AppUser {
 export interface UserFormData {
     nombreCompleto: string
     email: string
-    password: string      
+    password: string
     rol: UserRole
     estado: UserStatus
 }

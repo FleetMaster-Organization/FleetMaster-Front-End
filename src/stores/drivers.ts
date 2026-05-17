@@ -1,225 +1,439 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Driver, DriverFormData, LicenseStatusLegal } from '@/types'
-import { useAuditStore } from '@/stores/audit'
+import type {
+    Driver,
+    DriverLicense,
+    EmergencyContact,
+    DriverFormData,
+    DriverEditFormData,
+    DriverEmploymentStatus,
+    DriverEmploymentSubstatus,
+    LicenseCategory,
+    LicenseStatusLegal,
+} from '@/types'
+import { useAuditStore } from './audit'
 
-function calcularEstadoLegal(fechaVencimiento: string): LicenseStatusLegal {
-    const hoy = new Date()
-    const vence = new Date(fechaVencimiento)
-    const diffMs = vence.getTime() - hoy.getTime()
-    const diffDias = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-    if (diffDias < 0) return 'Vencida'
-    if (diffDias <= 30) return 'Por vencer'
+/**
+ * Calcula el estado legal de una licencia comparando su fecha de vencimiento
+ * con la fecha actual. No se persiste en BD (mismo criterio que vehicle_documents).
+ *   - Vencida:    expiration_date < hoy
+ *   - Por vencer: expiration_date <= hoy + 30 días  (REQ-20: indicador amarillo)
+ *   - Vigente:    expiration_date > hoy + 30 días
+ */
+function calcLicenseStatus(fechaVencimiento: string): LicenseStatusLegal {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const expiration = new Date(fechaVencimiento)
+    expiration.setHours(0, 0, 0, 0)
+    const diffDays = Math.ceil(
+        (expiration.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    )
+    if (diffDays < 0) return 'Vencida'       // REQ-20: indicador rojo
+    if (diffDays <= 30) return 'Por vencer'  // REQ-20: indicador amarillo
     return 'Vigente'
 }
 
+/**
+ * Derivar el estadoLaboral (status padre) desde el subestado.
+ * La tabla drivers solo guarda FK a employment_substatus;
+ * el status padre se obtiene por JOIN en la app.
+ */
+function statusFromSubstatus(sub: DriverEmploymentSubstatus): DriverEmploymentStatus {
+    if (sub === 'ACTIVO') return 'ACTIVO'
+    if (['SUSPENDIDO', 'VACACIONES', 'INCAPACIDAD'].includes(sub)) return 'INACTIVO'
+    return 'RETIRADO' // DESPEDIDO | RENUNCIA
+}
+
+function generateId(): string {
+    return `d_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+function generateLicId(): string {
+    return `lic_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+function generateContactId(): string {
+    return `ec_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+}
+
+function isoNow(): string {
+    return new Date().toISOString()
+}
+
+// ── Store ────────────────────────────────────────────────────────────────────
+
 export const useDriversStore = defineStore('drivers', () => {
-    const auditStore = useAuditStore()
+    const audit = useAuditStore()
+
+    // ── Estado ───────────────────────────────────────────────
     const drivers = ref<Driver[]>([
+        // Datos de ejemplo
         {
-        id: 'd001', nombre: 'Diomedes Díaz', cedula: '10445231890',
-        telefono: '3201234567', email: 'diomedes.diaz@logifast.com',
-        tipoLicencia: 'C2', fechaVencimientoLicencia: '2025-06-01',
-        estadoLegal: calcularEstadoLegal('2025-06-01'),
-        estado: 'Asignado', vehiculoAsignadoId: 'v001', vehiculoAsignadoPlaca: 'ABC-123',
-        contactoEmergenciaNombre: 'Rosa Díaz', contactoEmergenciaTelefono: '3109876543',
-        creadoEn: '2024-01-10T08:00:00Z', actualizadoEn: '2025-01-15T10:30:00Z',
+            id: 'd1',
+            nombre: 'Carlos Pérez',
+            cedula: '1020304050',
+            telefono: '3001234567',
+            email: 'cperez@ejemplo.com',
+            estadoLaboral: 'ACTIVO',
+            subestadoLaboral: 'ACTIVO',
+            vehiculoAsignadoId: 'v2',
+            vehiculoAsignadoPlaca: 'XYZ-789',
+            licencias: [
+                {
+                    id: 'lic1',
+                    conductorId: 'd1',
+                    categoria: 'C2',
+                    fechaExpedicion: '2020-03-01',
+                    fechaVencimiento: '2026-05-10',
+                    estadoLegal: calcLicenseStatus('2026-05-10'),
+                },
+                {
+                    id: 'lic2',
+                    conductorId: 'd1',
+                    categoria: 'B1',
+                    fechaExpedicion: '2019-01-15',
+                    fechaVencimiento: '2025-01-15',
+                    estadoLegal: calcLicenseStatus('2025-01-15'),
+                },
+            ],
+            contactosEmergencia: [
+                {
+                    id: 'ec1',
+                    conductorId: 'd1',
+                    nombre: 'María Pérez',
+                    telefono: '3109876543',
+                    relacion: 'Esposa',
+                },
+            ],
+            creadoEn: '2023-05-10T08:00:00Z',
+            actualizadoEn: '2023-05-10T08:00:00Z',
         },
         {
-        id: 'd002', nombre: 'Pedro Ramírez', cedula: '79856432101',
-        telefono: '3154567890', email: 'pedro.ramirez@logifast.com',
-        tipoLicencia: 'B1', fechaVencimientoLicencia: '2026-03-15',
-        estadoLegal: calcularEstadoLegal('2026-03-15'),
-        estado: 'Activo', vehiculoAsignadoId: null, vehiculoAsignadoPlaca: null,
-        contactoEmergenciaNombre: 'Ana Ramírez', contactoEmergenciaTelefono: '3118765432',
-        creadoEn: '2024-02-05T09:00:00Z', actualizadoEn: '2024-11-10T11:00:00Z',
-        },
-        {
-        id: 'd003', nombre: 'Carlos López', cedula: '52741896302',
-        telefono: '3187654321', email: 'carlos.lopez@logifast.com',
-        tipoLicencia: 'C3', fechaVencimientoLicencia: '2024-11-20',
-        estadoLegal: calcularEstadoLegal('2024-11-20'),
-        estado: 'Asignado', vehiculoAsignadoId: 'v004', vehiculoAsignadoPlaca: 'GHI-012',
-        contactoEmergenciaNombre: 'Lucía López', contactoEmergenciaTelefono: '3126543210',
-        creadoEn: '2024-03-18T10:00:00Z', actualizadoEn: '2025-01-20T09:15:00Z',
-        },
-        {
-        id: 'd004', nombre: 'María García', cedula: '31569874205',
-        telefono: '3219876543', email: 'maria.garcia@logifast.com',
-        tipoLicencia: 'B2', fechaVencimientoLicencia: '2025-09-30',
-        estadoLegal: calcularEstadoLegal('2025-09-30'),
-        estado: 'Asignado', vehiculoAsignadoId: 'v006', vehiculoAsignadoPlaca: 'MNO-678',
-        contactoEmergenciaNombre: 'Jorge García', contactoEmergenciaTelefono: '3134567891',
-        creadoEn: '2024-04-22T08:45:00Z', actualizadoEn: '2025-02-10T16:00:00Z',
-        },
-        {
-        id: 'd005', nombre: 'Luisa Fernández', cedula: '43218765901',
-        telefono: '3165432109', email: 'luisa.fernandez@logifast.com',
-        tipoLicencia: 'A2', fechaVencimientoLicencia: '2026-08-14',
-        estadoLegal: calcularEstadoLegal('2026-08-14'),
-        estado: 'Activo', vehiculoAsignadoId: null, vehiculoAsignadoPlaca: null,
-        contactoEmergenciaNombre: 'Roberto Fernández', contactoEmergenciaTelefono: '3141234567',
-        creadoEn: '2024-05-30T07:30:00Z', actualizadoEn: '2024-12-01T08:00:00Z',
-        },
-        {
-        id: 'd006', nombre: 'Juan Herrera', cedula: '11223344556',
-        telefono: '3201112233', email: 'juan.herrera@logifast.com',
-        tipoLicencia: 'C1', fechaVencimientoLicencia: '2025-04-10',
-        estadoLegal: calcularEstadoLegal('2025-04-10'),
-        estado: 'Inactivo', vehiculoAsignadoId: null, vehiculoAsignadoPlaca: null,
-        contactoEmergenciaNombre: 'Elena Herrera', contactoEmergenciaTelefono: '3152233445',
-        creadoEn: '2024-06-14T11:00:00Z', actualizadoEn: '2025-01-05T10:00:00Z',
-        },
-        {
-        id: 'd007', nombre: 'Andrés Moreno', cedula: '99887766554',
-        telefono: '3179998877', email: 'andres.moreno@logifast.com',
-        tipoLicencia: 'B3', fechaVencimientoLicencia: '2027-01-25',
-        estadoLegal: calcularEstadoLegal('2027-01-25'),
-        estado: 'Activo', vehiculoAsignadoId: null, vehiculoAsignadoPlaca: null,
-        contactoEmergenciaNombre: 'Camila Moreno', contactoEmergenciaTelefono: '3163344556',
-        creadoEn: '2024-07-08T09:15:00Z', actualizadoEn: '2024-10-20T14:00:00Z',
-        },
-        {
-        id: 'd008', nombre: 'Sandra Torres', cedula: '55443322110',
-        telefono: '3145544332', email: 'sandra.torres@logifast.com',
-        tipoLicencia: 'A1', fechaVencimientoLicencia: '2025-12-31',
-        estadoLegal: calcularEstadoLegal('2025-12-31'),
-        estado: 'Activo', vehiculoAsignadoId: null, vehiculoAsignadoPlaca: null,
-        contactoEmergenciaNombre: 'Felipe Torres', contactoEmergenciaTelefono: '3175566778',
-        creadoEn: '2024-08-19T08:00:00Z', actualizadoEn: '2024-11-30T09:00:00Z',
+            id: 'd2',
+            nombre: 'Luisa Ramírez',
+            cedula: '1234567890',
+            telefono: '3157654321',
+            email: 'lramirez@ejemplo.com',
+            estadoLaboral: 'INACTIVO',
+            subestadoLaboral: 'VACACIONES',
+            vehiculoAsignadoId: null,
+            vehiculoAsignadoPlaca: null,
+            licencias: [
+                {
+                    id: 'lic3',
+                    conductorId: 'd2',
+                    categoria: 'B1',
+                    fechaExpedicion: '2021-07-20',
+                    fechaVencimiento: '2027-07-20',
+                    estadoLegal: calcLicenseStatus('2027-07-20'),
+                },
+            ],
+            contactosEmergencia: [
+                {
+                    id: 'ec2',
+                    conductorId: 'd2',
+                    nombre: 'Jorge Ramírez',
+                    telefono: '3204567890',
+                    relacion: 'Hermano',
+                },
+            ],
+            creadoEn: '2023-09-01T10:00:00Z',
+            actualizadoEn: '2023-09-01T10:00:00Z',
         },
     ])
 
-    const isLoading = ref(false)
-    const error = ref<string | null>(null)
+    // ── Computed ─────────────────────────────────────────────
 
-    const activos = computed(() => drivers.value.filter(d => d.estado === 'Activo'))
-    const asignados = computed(() => drivers.value.filter(d => d.estado === 'Asignado'))
-    const inactivos = computed(() => drivers.value.filter(d => d.estado === 'Inactivo'))
-    const conLicenciaVencida = computed(() =>
-        drivers.value.filter(d => d.estadoLegal === 'Vencida')
-    )
-    const conLicenciaPorVencer = computed(() =>
-        drivers.value.filter(d => d.estadoLegal === 'Por vencer')
+    /** Conductores activos (estadoLaboral === ACTIVO) */
+    const activeDrivers = computed(() =>
+        drivers.value.filter(d => d.estadoLaboral === 'ACTIVO')
     )
 
-    function generateId(): string {
-        return 'd' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+    /** Conductores disponibles para nueva asignación (ACTIVO y sin vehículo) */
+    const availableDrivers = computed(() =>
+        drivers.value.filter(
+            d => d.estadoLaboral === 'ACTIVO' && !d.vehiculoAsignadoId
+        )
+    )
+
+    const totalDrivers = computed(() => drivers.value.length)
+    const activeDriversCount = computed(() => activeDrivers.value.length)
+
+    /** Conductores con al menos una licencia vencida o por vencer (REQ-20) */
+    const driversWithLicenseWarning = computed(() =>
+        drivers.value.filter(d =>
+            d.licencias.some(
+                l => l.estadoLegal === 'Vencida' || l.estadoLegal === 'Por vencer'
+            )
+        )
+    )
+
+    // ── Validaciones ─────────────────────────────────────────
+
+    /** REQ-19: Cédula única (no modificable tras registro) */
+    function isCedulaUnique(cedula: string, excludeId?: string): boolean {
+        return !drivers.value.some(
+            d => d.cedula === cedula && d.id !== excludeId
+        )
     }
 
-    function cedulaExists(cedula: string, excludeId?: string): boolean {
-        return drivers.value.some(d => d.cedula === cedula && d.id !== excludeId)
+    /**
+     * REQ-21: Verifica si el conductor puede participar en nuevas asignaciones.
+     * Debe estar ACTIVO y no tener vehículo asignado.
+     */
+    function isAvailableForAssignment(driverId: string): boolean {
+        const driver = drivers.value.find(d => d.id === driverId)
+        return !!driver &&
+            driver.estadoLaboral === 'ACTIVO' &&
+            !driver.vehiculoAsignadoId
     }
 
-    function createDriver(data: DriverFormData): { success: boolean; error?: string } {
-        if (cedulaExists(data.cedula)) {
-        return { success: false, error: `La cédula "${data.cedula}" ya está registrada.` }
+    // ── CRUD ──────────────────────────────────────────────────
+
+    /**
+     * REQ-16, REQ-17
+     * Crea un conductor con sus licencias y contactos de emergencia.
+     * El estadoLegal de cada licencia se calcula automáticamente.
+     */
+    function createDriver(
+        data: DriverFormData,
+        usuarioResponsable: string
+    ): { ok: boolean; error?: string } {
+        // Cédula única
+        if (!isCedulaUnique(data.cedula)) {
+            return { ok: false, error: 'La cédula ya existe en el sistema.' }
+        }
+        // Al menos una licencia
+        if (!data.licencias.length) {
+            return { ok: false, error: 'El conductor debe tener al menos una categoría de licencia.' }
+        }
+        // Al menos un contacto de emergencia (REQ-16)
+        if (!data.contactosEmergencia.length) {
+            return { ok: false, error: 'El conductor debe tener al menos un contacto de emergencia.' }
+        }
+        // Categorías únicas (equivalente al UNIQUE constraint de la BD)
+        const categorias = data.licencias.map(l => l.categoria)
+        if (new Set(categorias).size !== categorias.length) {
+            return { ok: false, error: 'No se puede registrar la misma categoría de licencia dos veces.' }
         }
 
-        const now = new Date().toISOString()
+        const id = generateId()
+        const now = isoNow()
+        const subestado = data.subestadoLaboral
+
+        const licencias: DriverLicense[] = data.licencias.map(l => ({
+            id: generateLicId(),
+            conductorId: id,
+            categoria: l.categoria,
+            fechaExpedicion: l.fechaExpedicion,
+            fechaVencimiento: l.fechaVencimiento,
+            estadoLegal: calcLicenseStatus(l.fechaVencimiento), // REQ-17
+        }))
+
+        const contactosEmergencia: EmergencyContact[] = data.contactosEmergencia.map(c => ({
+            id: generateContactId(),
+            conductorId: id,
+            nombre: c.nombre,
+            telefono: c.telefono,
+            relacion: c.relacion,
+        }))
+
         const newDriver: Driver = {
-        ...data,
-        id: generateId(),
-        estadoLegal: calcularEstadoLegal(data.fechaVencimientoLicencia),
-        vehiculoAsignadoId: null,
-        vehiculoAsignadoPlaca: null,
-        creadoEn: now,
-        actualizadoEn: now,
+            id,
+            nombre: data.nombre,
+            cedula: data.cedula,
+            telefono: data.telefono,
+            email: data.email,
+            estadoLaboral: statusFromSubstatus(subestado),
+            subestadoLaboral: subestado,
+            vehiculoAsignadoId: null,
+            vehiculoAsignadoPlaca: null,
+            licencias,
+            contactosEmergencia,
+            creadoEn: now,
+            actualizadoEn: now,
         }
-        drivers.value.unshift(newDriver)
 
-        auditStore.log({
-        usuario: 'Admin',
-        accion: 'CREAR_CONDUCTOR',
-        entidad: `Conductor ${data.nombre}`,
-        detalle: `Perfil creado. Licencia ${data.tipoLicencia} — vence ${data.fechaVencimientoLicencia}`,
+        drivers.value.push(newDriver)
+        audit.log({
+            usuario: usuarioResponsable,
+            accion: 'CREAR_CONDUCTOR',
+            entidad: `Conductor ${data.nombre}`,
+            detalle: `Cédula: ${data.cedula}`,
         })
-
-        return { success: true }
+        return { ok: true }
     }
 
+    /**
+     * REQ-18, REQ-19
+     * Edita datos del conductor y renueva/agrega licencias.
+     * Cédula no modificable (REQ-19).
+     * Al renovar una licencia existente (mismo id_driver + category), actualiza el registro.
+     * El estadoLegal se recalcula automáticamente (REQ-18).
+     */
     function updateDriver(
         id: string,
-        data: Omit<DriverFormData, 'cedula'>
-    ): { success: boolean; error?: string } {
-        const index = drivers.value.findIndex(d => d.id === id)
-        if (index === -1) return { success: false, error: 'Conductor no encontrado.' }
+        data: DriverEditFormData,
+        usuarioResponsable: string
+    ): { ok: boolean; error?: string } {
+        const driver = drivers.value.find(d => d.id === id)
+        if (!driver) return { ok: false, error: 'Conductor no encontrado.' }
 
-        const driver = drivers.value[index]!
-        drivers.value[index] = {
-        ...driver,
-        ...data,
-        id: driver.id,
-        cedula: driver.cedula, // REQ-19: inmutable
-        estadoLegal: calcularEstadoLegal(data.fechaVencimientoLicencia), // REQ-17/18
-        actualizadoEn: new Date().toISOString(),
+        // Categorías únicas
+        const categorias = data.licencias.map(l => l.categoria)
+        if (new Set(categorias).size !== categorias.length) {
+            return { ok: false, error: 'No se puede registrar la misma categoría de licencia dos veces.' }
+        }
+        if (!data.contactosEmergencia.length) {
+            return { ok: false, error: 'El conductor debe tener al menos un contacto de emergencia.' }
         }
 
-        auditStore.log({
-        usuario: 'Admin',
-        accion: 'EDITAR_CONDUCTOR',
-        entidad: `Conductor ${driver.nombre}`,
-        detalle: `Información actualizada. Licencia vence: ${data.fechaVencimientoLicencia}`,
+        driver.nombre = data.nombre
+        driver.telefono = data.telefono
+        driver.email = data.email
+        driver.subestadoLaboral = data.subestadoLaboral
+        driver.estadoLaboral = statusFromSubstatus(data.subestadoLaboral)
+        driver.actualizadoEn = isoNow()
+
+        // Actualizar licencias: UNIQUE (id_driver, category) → upsert por categoría
+        data.licencias.forEach(l => {
+            const existing = driver.licencias.find(lic => lic.categoria === l.categoria)
+            if (existing) {
+                // Renovación (REQ-18)
+                existing.fechaExpedicion = l.fechaExpedicion
+                existing.fechaVencimiento = l.fechaVencimiento
+                existing.estadoLegal = calcLicenseStatus(l.fechaVencimiento)
+            } else {
+                // Nueva categoría
+                driver.licencias.push({
+                    id: l.id ?? generateLicId(),
+                    conductorId: id,
+                    categoria: l.categoria,
+                    fechaExpedicion: l.fechaExpedicion,
+                    fechaVencimiento: l.fechaVencimiento,
+                    estadoLegal: calcLicenseStatus(l.fechaVencimiento),
+                })
+            }
         })
 
-        return { success: true }
-    }
+        // Actualizar contactos de emergencia
+        driver.contactosEmergencia = data.contactosEmergencia.map(c => ({
+            id: c.id ?? generateContactId(),
+            conductorId: id,
+            nombre: c.nombre,
+            telefono: c.telefono,
+            relacion: c.relacion,
+        }))
 
-    function deactivateDriver(id: string): { success: boolean; error?: string } {
-        const index = drivers.value.findIndex(d => d.id === id)
-        const driver = drivers.value[index]
-        if (!driver) return { success: false, error: 'Conductor no encontrado.' }
-        if (drivers.value[index]!.estado === 'Asignado') {
-        return { success: false, error: 'No se puede inactivar un conductor con asignación activa.' }
-        }
-        drivers.value[index] = {
-        ...drivers.value[index]!,
-        estado: 'Inactivo',
-        actualizadoEn: new Date().toISOString(),
-        }
-
-        auditStore.log({
-        usuario: 'Admin',
-        accion: 'INACTIVAR_CONDUCTOR',
-        entidad: `Conductor ${drivers.value[index].nombre}`,
-        detalle: 'Conductor inactivado — bloqueado para nuevas asignaciones',
+        audit.log({
+            usuario: usuarioResponsable,
+            accion: 'EDITAR_CONDUCTOR',
+            entidad: `Conductor ${driver.nombre}`,
+            detalle: 'Datos actualizados',
         })
-        return { success: true }
+        return { ok: true }
     }
 
-    function activateDriver(id: string): { success: boolean; error?: string } {
-        const index = drivers.value.findIndex(d => d.id === id)
-        if (index === -1) return { success: false, error: 'Conductor no encontrado.' }
-        drivers.value[index] = {
-        ...drivers.value[index]!,
-        estado: 'Activo',
-        actualizadoEn: new Date().toISOString(),
+    /**
+     * REQ-21: Inactiva un conductor (subestado SUSPENDIDO por defecto).
+     * Bloquea su participación en nuevas asignaciones operativas.
+     */
+    function inactivateDriver(
+        id: string,
+        subestado: DriverEmploymentSubstatus = 'SUSPENDIDO',
+        usuarioResponsable: string
+    ): { ok: boolean; error?: string } {
+        const driver = drivers.value.find(d => d.id === id)
+        if (!driver) return { ok: false, error: 'Conductor no encontrado.' }
+        if (driver.vehiculoAsignadoId) {
+            return { ok: false, error: 'El conductor tiene una asignación activa. Ciérrela primero.' }
         }
 
-        auditStore.log({
-            usuario: 'Admin',
+        driver.subestadoLaboral = subestado
+        driver.estadoLaboral = statusFromSubstatus(subestado)
+        driver.actualizadoEn = isoNow()
+
+        audit.log({
+            usuario: usuarioResponsable,
+            accion: 'INACTIVAR_CONDUCTOR',
+            entidad: `Conductor ${driver.nombre}`,
+            detalle: `Subestado: ${subestado}`,
+        })
+        return { ok: true }
+    }
+
+    /** Reactiva un conductor (subestado ACTIVO). */
+    function activateDriver(
+        id: string,
+        usuarioResponsable: string
+    ): { ok: boolean; error?: string } {
+        const driver = drivers.value.find(d => d.id === id)
+        if (!driver) return { ok: false, error: 'Conductor no encontrado.' }
+
+        driver.subestadoLaboral = 'ACTIVO'
+        driver.estadoLaboral = 'ACTIVO'
+        driver.actualizadoEn = isoNow()
+
+        audit.log({
+            usuario: usuarioResponsable,
             accion: 'ACTIVAR_CONDUCTOR',
-            entidad: `Conductor ${drivers.value[index].nombre}`,
-            detalle: 'Conductor activado — disponible para asignaciones',
+            entidad: `Conductor ${driver.nombre}`,
+            detalle: 'Reactivado',
         })
+        return { ok: true }
+    }
 
-        return { success: true }
+    /** Vincula o desvincula un vehículo al conductor. */
+    function setAssignedVehicle(
+        conductorId: string,
+        vehiculoId: string | null,
+        vehiculoPlaca: string | null
+    ) {
+        const driver = drivers.value.find(d => d.id === conductorId)
+        if (driver) {
+            driver.vehiculoAsignadoId = vehiculoId
+            driver.vehiculoAsignadoPlaca = vehiculoPlaca
+            driver.actualizadoEn = isoNow()
+        }
+    }
+
+    /** Recalcula estadoLegal de todas las licencias (útil al iniciar la app). */
+    function refreshLicenseStatuses() {
+        drivers.value.forEach(driver => {
+            driver.licencias.forEach(lic => {
+                lic.estadoLegal = calcLicenseStatus(lic.fechaVencimiento)
+            })
+        })
+    }
+
+    // ── Búsqueda ─────────────────────────────────────────────
+    function searchDrivers(query: string): Driver[] {
+        const q = query.trim().toLowerCase()
+        if (!q) return drivers.value
+        return drivers.value.filter(
+            d =>
+                d.nombre.toLowerCase().includes(q) ||
+                d.cedula.includes(q)
+        )
     }
 
     return {
         drivers,
-        isLoading,
-        error,
-        activos,
-        asignados,
-        inactivos,
-        conLicenciaVencida,
-        conLicenciaPorVencer,
-        cedulaExists,
+        activeDrivers,
+        availableDrivers,
+        totalDrivers,
+        activeDriversCount,
+        driversWithLicenseWarning,
+        isCedulaUnique,
+        isAvailableForAssignment,
         createDriver,
         updateDriver,
-        deactivateDriver,
+        inactivateDriver,
         activateDriver,
+        setAssignedVehicle,
+        refreshLicenseStatuses,
+        searchDrivers,
     }
 })
