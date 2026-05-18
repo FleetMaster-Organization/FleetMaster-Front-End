@@ -14,42 +14,42 @@ export const useUsersStore = defineStore('users', () => {
     const users = ref<AppUser[]>([
         {
         id: 'u001', nombreCompleto: 'Ali Baba', email: 'admin@logifast.com',
-        passwordHash: fakeHash('admin123'), rol: 'Administrador',
+        passwordHash: fakeHash('admin123'), rol: 'admin',
         estado: 'Activo', creadoEn: '2024-01-01T08:00:00Z', actualizadoEn: '2024-01-01T08:00:00Z',
         },
         {
         id: 'u002', nombreCompleto: 'Laura Coordinadora', email: 'laura@logifast.com',
-        passwordHash: fakeHash('coord456'), rol: 'Coordinador de flota',
+        passwordHash: fakeHash('coord456'), rol: 'coordinator',
         estado: 'Activo', creadoEn: '2024-01-15T09:00:00Z', actualizadoEn: '2024-03-10T10:00:00Z',
         },
         {
         id: 'u003', nombreCompleto: 'Técnico Juan', email: 'juan.tec@logifast.com',
-        passwordHash: fakeHash('mec789'), rol: 'Mecánico',
+        passwordHash: fakeHash('mec789'), rol: 'mechanic',
         estado: 'Activo', creadoEn: '2024-02-01T08:00:00Z', actualizadoEn: '2024-02-01T08:00:00Z',
         },
         {
         id: 'u004', nombreCompleto: 'Despachador Carlos', email: 'carlos.desp@logifast.com',
-        passwordHash: fakeHash('desp000'), rol: 'Despachador',
+        passwordHash: fakeHash('desp000'), rol: 'dispatcher',
         estado: 'Activo', creadoEn: '2024-02-10T07:30:00Z', actualizadoEn: '2024-04-01T09:00:00Z',
         },
         {
         id: 'u005', nombreCompleto: 'Técnico Ramírez', email: 'ramirez.tec@logifast.com',
-        passwordHash: fakeHash('mec321'), rol: 'Mecánico',
+        passwordHash: fakeHash('mec321'), rol: 'mechanic',
         estado: 'Activo', creadoEn: '2024-03-05T10:00:00Z', actualizadoEn: '2024-03-05T10:00:00Z',
         },
         {
         id: 'u006', nombreCompleto: 'Coordinador1', email: 'coord1@logifast.com',
-        passwordHash: fakeHash('coord111'), rol: 'Coordinador de flota',
+        passwordHash: fakeHash('coord111'), rol: 'coordinator',
         estado: 'Activo', creadoEn: '2024-03-20T08:00:00Z', actualizadoEn: '2024-03-20T08:00:00Z',
         },
         {
         id: 'u007', nombreCompleto: 'Técnico Gómez', email: 'gomez.tec@logifast.com',
-        passwordHash: fakeHash('mec654'), rol: 'Mecánico',
+        passwordHash: fakeHash('mec654'), rol: 'mechanic',
         estado: 'Inactivo', creadoEn: '2024-04-01T09:00:00Z', actualizadoEn: '2024-12-01T11:00:00Z',
         },
         {
         id: 'u008', nombreCompleto: 'Sandra Despachadora', email: 'sandra.desp@logifast.com',
-        passwordHash: fakeHash('desp999'), rol: 'Despachador',
+        passwordHash: fakeHash('desp999'), rol: 'dispatcher',
         estado: 'Activo', creadoEn: '2024-04-15T07:00:00Z', actualizadoEn: '2024-04-15T07:00:00Z',
         },
     ])

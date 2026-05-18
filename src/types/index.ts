@@ -393,7 +393,7 @@ export interface AuditLog {
 }
 
 // ── Usuarios ──────────────────────────────────────────────────
-export type UserRole   = 'Administrador' | 'Coordinador de flota' | 'Mecánico' | 'Despachador'
+export type UserRole   = 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
 export type UserStatus = 'Activo' | 'Inactivo'
 
 export interface AppUser {
