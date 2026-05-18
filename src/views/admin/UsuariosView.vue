@@ -15,7 +15,7 @@ const filterRol   = ref<UserRole | 'Todos'>('Todos')
 const filterEstado = ref<UserStatus | 'Todos'>('Todos')
 
 const roles: Array<UserRole | 'Todos'> = [
-    'Todos', 'Administrador', 'Coordinador de flota', 'Mecánico', 'Despachador',
+    'Todos', 'admin', 'coordinator', 'mechanic', 'dispatcher'
 ]
 
 const filteredUsers = computed(() => {
@@ -72,7 +72,7 @@ const showPassword   = ref(false)
 
 const EMPTY_FORM = (): UserFormData => ({
     nombreCompleto: '', email: '', password: '',
-    rol: 'Coordinador de flota', estado: 'Activo',
+    rol: 'coordinator', estado: 'Activo',
 })
 
 const form = reactive<UserFormData>(EMPTY_FORM())
@@ -149,14 +149,14 @@ function doConfirm() {
 
 // ── Colores por rol ──────────────────────────────────────────
 const rolColors: Record<UserRole, string> = {
-    'Administrador':       'bg-purple-100 text-purple-700 border-purple-200',
-    'Coordinador de flota':'bg-blue-100 text-blue-700 border-blue-200',
-    'Mecánico':            'bg-amber-100 text-amber-700 border-amber-200',
-    'Despachador':         'bg-teal-100 text-teal-700 border-teal-200',
+    'admin':       'bg-purple-100 text-purple-700 border-purple-200',
+    'coordinator': 'bg-blue-100 text-blue-700 border-blue-200',
+    'mechanic':    'bg-amber-100 text-amber-700 border-amber-200',
+    'dispatcher':  'bg-teal-100 text-teal-700 border-teal-200',
 }
 
 const allRoles: UserRole[] = [
-    'Administrador', 'Coordinador de flota', 'Mecánico', 'Despachador',
+    'admin', 'coordinator', 'mechanic', 'dispatcher',
 ]
 </script>
 

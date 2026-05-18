@@ -16,7 +16,7 @@ const vehiclesStore    = useVehiclesStore()
 const driversStore     = useDriversStore()
 const authStore        = useAuthStore()
 
-const currentUser = computed(() => authStore.user?.email ?? 'despachador')
+const currentUser = computed(() => authStore.user?.email ?? 'dispatcher')
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
 type Tab = 'activas' | 'historial'
