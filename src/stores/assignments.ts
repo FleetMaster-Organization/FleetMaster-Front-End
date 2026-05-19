@@ -4,31 +4,18 @@ import type { Assignment, AssignmentFormData, AssignmentCloseData } from '@/type
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore }  from '@/stores/drivers'
 import { useAuditStore }    from '@/stores/audit'
+import { useAuthStore }     from '@/stores/auth'
+import { api }              from '@/utils/api'
 
 export const useAssignmentsStore = defineStore('assignments', () => {
     const vehiclesStore = useVehiclesStore()
     const driversStore  = useDriversStore()
     const auditStore    = useAuditStore()
+    const authStore     = useAuthStore()
 
     // ── Estado ────────────────────────────────────────────────
-    const assignments = ref<Assignment[]>([
-        {
-            id: 'a001', vehiculoId: 'v2', vehiculoPlaca: 'XYZ-789',
-            vehiculoMarca: 'Toyota', vehiculoModelo: 'Hilux',
-            conductorId: 'd1', conductorNombre: 'Carlos Pérez', conductorCedula: '1020304050',
-            fechaInicio: '2025-04-28T07:00:00Z', fechaFin: null,
-            kilometrajeInicio: 28000, kilometrajeFin: null,
-            usuarioResponsable: 'Admin', estado: 'Activa',
-        },
-        {
-            id: 'a002', vehiculoId: 'v_hist_1', vehiculoPlaca: 'DEF-456',
-            vehiculoMarca: 'Chevrolet', vehiculoModelo: 'NPR',
-            conductorId: 'd_hist_1', conductorNombre: 'Pedro Ramírez', conductorCedula: '79856432101',
-            fechaInicio: '2025-04-01T07:00:00Z', fechaFin: '2025-04-01T17:30:00Z',
-            kilometrajeInicio: 18200, kilometrajeFin: 18900,
-            usuarioResponsable: 'Admin', estado: 'Finalizada',
-        },
-    ])
+    const assignments = ref<Assignment[]>([])
+    const isLoading = ref(false)
 
     // ── Getters ───────────────────────────────────────────────
     const activas   = computed(() => assignments.value.filter(a => a.estado === 'Activa'))
@@ -38,11 +25,6 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         computed(() => assignments.value.filter(a => a.vehiculoId === vehiculoId))
     const porConductor = (conductorId: string) =>
         computed(() => assignments.value.filter(a => a.conductorId === conductorId))
-
-    // ── Helpers ───────────────────────────────────────────────
-    function generateId(): string {
-        return 'a' + Date.now().toString(36) + Math.random().toString(36).substring(2, 7)
-    }
 
     // ── Validaciones de documentos ────────────────────────────
 
@@ -94,13 +76,55 @@ export const useAssignmentsStore = defineStore('assignments', () => {
 
     // ── Acciones ──────────────────────────────────────────────
 
-    function createAssignment(
+    async function loadAssignments() {
+        isLoading.value = true
+        try {
+            const allAssignments: Assignment[] = []
+
+            await Promise.all(vehiclesStore.vehicles.map(async (v) => {
+                try {
+                    const res = await api.get<any>(`/api/vehiculos/${v.id}/historial`)
+                    const history = res.data.data || []
+
+                    history.forEach((item: any) => {
+                        const isCurrentActive = v.estadoOperativo === 'En ruta' && v.conductorAsignadoNombre === item.conductor
+
+                        allAssignments.push({
+                            id: item.id,
+                            vehiculoId: v.id,
+                            vehiculoPlaca: v.placa,
+                            vehiculoMarca: v.marca,
+                            vehiculoModelo: v.modelo,
+                            conductorId: v.conductorAsignadoId || '',
+                            conductorNombre: item.conductor,
+                            conductorCedula: '',
+                            fechaInicio: item.date,
+                            fechaFin: isCurrentActive ? null : item.date,
+                            kilometrajeInicio: item.km,
+                            kilometrajeFin: isCurrentActive ? null : item.km,
+                            usuarioResponsable: 'Admin',
+                            estado: isCurrentActive ? 'Activa' : 'Finalizada'
+                        })
+                    })
+                } catch (e) {
+                    console.error(`Error loading history for vehicle ${v.placa}:`, e)
+                }
+            }))
+
+            assignments.value = allAssignments.sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime())
+        } catch (error) {
+            console.error('Error loading assignments:', error)
+        } finally {
+            isLoading.value = false
+        }
+    }
+
+    async function createAssignment(
         data: AssignmentFormData,
-    ): { success: boolean; error?: string } {
+    ): Promise<{ success: boolean; error?: string }> {
         const vehicle = vehiclesStore.vehicles.find(v => v.id === data.vehiculoId)
         const driver  = driversStore.drivers.find(d => d.id === data.conductorId)
 
-        // Validar existencia
         if (!vehicle) return { success: false, error: 'Vehículo no encontrado.' }
         if (!driver)  return { success: false, error: 'Conductor no encontrado.' }
 
@@ -133,82 +157,75 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         const licError = validateDriverLicense(driver.id)
         if (licError) return { success: false, error: licError }
 
-        // REQ-25: crear registro histórico
-        const now = new Date().toISOString()
-        const newAssignment: Assignment = {
-            id:               generateId(),
-            vehiculoId:       vehicle.id,
-            vehiculoPlaca:    vehicle.placa,
-            vehiculoMarca:    vehicle.marca,
-            vehiculoModelo:   vehicle.modelo,
-            conductorId:      driver.id,
-            conductorNombre:  driver.nombre,
-            conductorCedula:  driver.cedula,
-            fechaInicio:      now,
-            fechaFin:         null,
-            kilometrajeInicio: vehicle.kilometraje,
-            kilometrajeFin:   null,
-            usuarioResponsable: data.usuarioResponsable,
-            estado: 'Activa',
+        try {
+            const userId = authStore.user?.id || '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+
+            await api.post('/api/asignaciones', {
+                vehicleId: vehicle.id,
+                driverId: driver.id,
+                userId: userId
+            })
+
+            await vehiclesStore.loadVehicles()
+            await driversStore.loadDrivers()
+            await loadAssignments()
+
+            auditStore.log({
+                accion: 'CREAR_ASIGNACION',
+                usuario: data.usuarioResponsable,
+                entidad: `Vehículo ${vehicle.placa}`,
+                detalle: `Asignación creada: ${vehicle.placa} → ${driver.nombre}`,
+            })
+
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error creating assignment:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { success: false, error: msg }
         }
-        assignments.value.unshift(newAssignment)
-
-        // REQ-26: actualizar estados usando los métodos del store
-        vehiclesStore.setOperationalStatus(vehicle.id, 'En ruta')
-        vehiclesStore.setAssignedDriver(vehicle.id, driver.id, driver.nombre)
-        driversStore.setAssignedVehicle(driver.id, vehicle.id, vehicle.placa)
-
-        auditStore.log({
-            accion: 'CREAR_ASIGNACION',
-            usuario: data.usuarioResponsable,
-            entidad: `Vehículo ${vehicle.placa}`,
-            detalle: `Asignación creada: ${vehicle.placa} → ${driver.nombre}`,
-        })
-
-        return { success: true }
     }
 
-    function closeAssignment(
+    async function closeAssignment(
         id: string,
         data: AssignmentCloseData,
-    ): { success: boolean; error?: string } {
-        const idx = assignments.value.findIndex(a => a.id === id)
-        if (idx === -1) return { success: false, error: 'Asignación no encontrada.' }
+    ): Promise<{ success: boolean; error?: string }> {
+        const assignment = assignments.value.find(a => a.id === id)
+        if (!assignment) return { success: false, error: 'Asignación no encontrada.' }
 
-        const assignment = assignments.value[idx]!
-        const vehicle    = vehiclesStore.vehicles.find(v => v.id === assignment.vehiculoId)
-
+        const vehicle = vehiclesStore.vehicles.find(v => v.id === assignment.vehiculoId)
         if (!vehicle) return { success: false, error: 'Vehículo no encontrado.' }
 
-        // REQ-28: km final ≥ km actual
         if (data.kilometrajeFin < vehicle.kilometraje)
             return {
                 success: false,
                 error: `El kilometraje final (${data.kilometrajeFin} km) no puede ser menor al actual del vehículo (${vehicle.kilometraje} km).`,
             }
 
-        // REQ-25: cerrar registro histórico
-        assignments.value[idx] = {
-            ...assignment,
-            fechaFin:       data.fechaFin,
-            kilometrajeFin: data.kilometrajeFin,
-            estado:         'Finalizada',
+        try {
+            const userId = authStore.user?.id || '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+
+            await api.patch(`/api/asignaciones/${id}/cerrar`, {
+                finalKm: data.kilometrajeFin,
+                userId: userId
+            })
+
+            await vehiclesStore.loadVehicles()
+            await driversStore.loadDrivers()
+            await loadAssignments()
+
+            auditStore.log({
+                accion: 'CERRAR_ASIGNACION',
+                usuario: assignment.usuarioResponsable,
+                entidad: `Vehículo ${assignment.vehiculoPlaca}`,
+                detalle: `Asignación finalizada. Km final: ${data.kilometrajeFin}`,
+            })
+
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error closing assignment:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { success: false, error: msg }
         }
-
-        // REQ-29: liberar vehículo y conductor usando métodos del store
-        vehiclesStore.setOperationalStatus(vehicle.id, 'Disponible')
-        vehiclesStore.setAssignedDriver(vehicle.id, null, null)
-        vehiclesStore.updateKilometraje(vehicle.id, data.kilometrajeFin)
-        driversStore.setAssignedVehicle(assignment.conductorId, null, null)
-
-        auditStore.log({
-            accion: 'CERRAR_ASIGNACION',
-            usuario: assignment.usuarioResponsable,
-            entidad: `Vehículo ${assignment.vehiculoPlaca}`,
-            detalle: `Asignación finalizada. Km final: ${data.kilometrajeFin}`,
-        })
-
-        return { success: true }
     }
 
     return {
@@ -217,6 +234,8 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         historial,
         porVehiculo,
         porConductor,
+        isLoading,
+        loadAssignments,
         createAssignment,
         closeAssignment,
         validateVehicleDocs,
