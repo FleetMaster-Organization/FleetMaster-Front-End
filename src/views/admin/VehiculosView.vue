@@ -137,7 +137,7 @@ function openCreate() {
     showCreateModal.value    = true
 }
 
-function submitCreate() {
+async function submitCreate() {
     createError.value = ''
 
     if (!createForm.vin || !createForm.placa || !createForm.marca || !createForm.modelo) {
@@ -157,7 +157,7 @@ function submitCreate() {
         return
     }
 
-    const result = store.createVehicle({ ...createForm }, currentUser.value)
+    const result = await store.createVehicle({ ...createForm }, currentUser.value)
 
     if (result.ok) {
         showCreateModal.value = false
@@ -206,7 +206,7 @@ function openEdit(v: Vehicle) {
     showEditModal.value = true
 }
 
-function submitEdit() {
+async function submitEdit() {
     editError.value = ''
     if (!editingVehicle.value) return
 
@@ -223,7 +223,7 @@ function submitEdit() {
         return
     }
 
-    const result = store.updateVehicle(
+    const result = await store.updateVehicle(
         editingVehicle.value.id,
         { ...editForm },
         currentUser.value,
@@ -247,11 +247,11 @@ function openSell(v: Vehicle) {
     showSellModal.value = true
 }
 
-function confirmSell() {
+async function confirmSell() {
     if (!sellTarget.value) return
     // Para la demo se asume sin asignación/mantenimiento abierto;
     // en integración real estos flags vienen de los stores correspondientes.
-    const result = store.changeAdministrativeStatus(
+    const result = await store.changeAdministrativeStatus(
         sellTarget.value.id,
         'Vendido',
         currentUser.value,

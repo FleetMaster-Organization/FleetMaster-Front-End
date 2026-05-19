@@ -190,7 +190,7 @@ function removeContact(i: number) {
         createForm.contactosEmergencia.splice(i, 1)
 }
 
-function submitCreate() {
+async function submitCreate() {
     createError.value = ''
     if (!createForm.nombre || !createForm.cedula) {
         createError.value = 'Nombre y cédula son obligatorios.'
@@ -224,7 +224,7 @@ function submitCreate() {
         })),
     }
 
-    const result = store.createDriver(payload, currentUser.value)
+    const result = await store.createDriver(payload, currentUser.value)
     if (result.ok) {
         showCreateModal.value = false
     } else {
@@ -295,7 +295,7 @@ function removeEditContact(i: number) {
         editForm.contactosEmergencia.splice(i, 1)
 }
 
-function submitEdit() {
+async function submitEdit() {
     editError.value = ''
     if (!editingDriver.value) return
     if (!editForm.nombre) {
@@ -331,7 +331,7 @@ function submitEdit() {
         })),
     }
 
-    const result = store.updateDriver(editingDriver.value.id, payload, currentUser.value)
+    const result = await store.updateDriver(editingDriver.value.id, payload, currentUser.value)
     if (result.ok) {
         showEditModal.value = false
     } else {
@@ -361,11 +361,11 @@ function openConfirmActivate(d: Driver) {
     showConfirmModal.value = true
 }
 
-function doConfirmAction() {
+async function doConfirmAction() {
     if (!confirmTarget.value) return
     const result = confirmMode.value === 'deactivate'
-        ? store.inactivateDriver(confirmTarget.value.id, confirmSubstatus.value, currentUser.value)
-        : store.activateDriver(confirmTarget.value.id, currentUser.value)
+        ? await store.inactivateDriver(confirmTarget.value.id, confirmSubstatus.value, currentUser.value)
+        : await store.activateDriver(confirmTarget.value.id, currentUser.value)
 
     if (result.ok) {
         showConfirmModal.value = false
