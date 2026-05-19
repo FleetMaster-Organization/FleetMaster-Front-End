@@ -66,6 +66,29 @@ function mapVehicleTypeToBodyType(type: VehicleType): string {
     return 'OTRO'
 }
 
+function parseBackendDate(val: any): string {
+    if (!val) return ''
+    if (typeof val === 'string') {
+        return val.substring(0, 10)
+    }
+    if (Array.isArray(val)) {
+        const y = val[0]
+        const m = String(val[1]).padStart(2, '0')
+        const d = String(val[2]).padStart(2, '0')
+        return `${y}-${m}-${d}`
+    }
+    return ''
+}
+
+function mapLegalStatus(backend: string): DocumentLegalStatus {
+    if (!backend) return 'Vigente'
+    const b = backend.toUpperCase()
+    if (b === 'VALIDO' || b === 'VALID' || b === 'VIGENTE') return 'Vigente'
+    if (b === 'RENOVACION_PENDIENTE' || b === 'POR_VENCER') return 'Por vencer'
+    if (b === 'EXPIRADO' || b === 'EXPIRED' || b === 'VENCIDO') return 'Vencido'
+    return 'Vigente'
+}
+
 // ── Store ────────────────────────────────────────────────────────────────────
 
 export const useVehiclesStore = defineStore('vehicles', () => {
@@ -138,9 +161,9 @@ export const useVehiclesStore = defineStore('vehicles', () => {
                         id: doc.id,
                         vehiculoId: doc.vehicleId,
                         tipo: doc.documentType === 'SOAT' ? 'SOAT' : 'TECNOMECANICA',
-                        fechaExpedicion: doc.issueDate,
-                        fechaVencimiento: doc.expirationDate,
-                        estadoLegal: doc.legalStatus as DocumentLegalStatus
+                        fechaExpedicion: parseBackendDate(doc.issueDate),
+                        fechaVencimiento: parseBackendDate(doc.expirationDate),
+                        estadoLegal: mapLegalStatus(doc.legalStatus)
                     }))
                 } catch (e) {
                     console.error(`Error loading documents for vehicle ${v.plate}:`, e)
