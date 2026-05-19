@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import router from '@/router'
 import { api } from '@/utils/api'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
@@ -37,8 +37,6 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
 ]
 
 export const useAuthStore = defineStore('auth', () => {
-    const router = useRouter()
-
     const user  = ref<User | null>(null)
     const token = ref<string | null>(localStorage.getItem('token'))
 
