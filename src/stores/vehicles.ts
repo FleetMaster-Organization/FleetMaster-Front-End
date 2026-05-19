@@ -110,13 +110,13 @@ export const useVehiclesStore = defineStore('vehicles', () => {
 
     const totalVehicles = computed(() => vehicles.value.length)
     const availableVehicles = computed(() =>
-        vehicles.value.filter(v => v.estadoOperativo === 'Disponible').length
+        vehicles.value.filter(v => v.estadoOperativo === 'Disponible' && v.estadoAdministrativo !== 'Vendido').length
     )
     const inRouteVehicles = computed(() =>
-        vehicles.value.filter(v => v.estadoOperativo === 'En ruta').length
+        vehicles.value.filter(v => v.estadoOperativo === 'En ruta' && v.estadoAdministrativo !== 'Vendido').length
     )
     const inMaintenanceVehicles = computed(() =>
-        vehicles.value.filter(v => v.estadoOperativo === 'En mantenimiento').length
+        vehicles.value.filter(v => v.estadoOperativo === 'En mantenimiento' && v.estadoAdministrativo !== 'Vendido').length
     )
     const soldVehicles = computed(() =>
         vehicles.value.filter(v => v.estadoAdministrativo === 'Vendido').length
@@ -213,7 +213,7 @@ export const useVehiclesStore = defineStore('vehicles', () => {
             // 2. Agregar SOAT
             await api.post(`/vehicles/${vehicleId}/documents`, {
                 documentType: 'SOAT',
-                documentNumber: `SOAT-${Date.now()}`,
+                documentNumber: `SOAT${Date.now()}`,
                 issuedBy: 'Seguros del Estado',
                 issueDate: data.soat.fechaExpedicion,
                 expirationDate: data.soat.fechaVencimiento
@@ -221,8 +221,8 @@ export const useVehiclesStore = defineStore('vehicles', () => {
 
             // 3. Agregar Tecnomecánica
             await api.post(`/vehicles/${vehicleId}/documents`, {
-                documentType: 'TECNOMECANICA',
-                documentNumber: `TEC-${Date.now()}`,
+                documentType: 'TECNO',
+                documentNumber: `${Date.now()}`.substring(0, 12),
                 issuedBy: 'CDA Autorizado',
                 issueDate: data.tecnomecanica.fechaExpedicion,
                 expirationDate: data.tecnomecanica.fechaVencimiento
