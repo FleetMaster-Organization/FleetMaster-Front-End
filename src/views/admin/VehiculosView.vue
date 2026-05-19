@@ -156,6 +156,30 @@ async function submitCreate() {
         createError.value = 'Por favor completa todos los campos obligatorios.'
         return
     }
+
+    const plateClean = createForm.placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+    const plateRegex = /^[A-Z]{3}[0-9]{3}$/
+    if (!plateRegex.test(plateClean)) {
+        createError.value = 'La placa debe tener exactamente 3 letras seguidas de 3 números (Ej: ABC-123).'
+        return
+    }
+
+    const vinClean = createForm.vin.replace(/\s/g, '').toUpperCase()
+    if (vinClean.length !== 17) {
+        createError.value = 'El VIN debe tener exactamente 17 caracteres.'
+        return
+    }
+
+    if (!store.isPlacaUnique(plateClean)) {
+        createError.value = 'Esta placa ya se encuentra registrada.'
+        return
+    }
+
+    if (!store.isVinUnique(vinClean)) {
+        createError.value = 'Este VIN ya se encuentra registrado.'
+        return
+    }
+
     if (createForm.kilometraje < 0) {
         createError.value = 'El kilometraje debe ser un valor positivo.'
         return
