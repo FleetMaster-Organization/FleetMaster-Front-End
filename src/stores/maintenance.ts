@@ -4,6 +4,7 @@ import type { MaintenanceRecord, MaintenanceFormData, MaintenanceCloseData } fro
 import { useVehiclesStore }    from '@/stores/vehicles'
 import { useAssignmentsStore } from '@/stores/assignments'
 import { useAuditStore }       from '@/stores/audit'
+import { api }                 from '@/utils/api'
 
 export const useMaintenanceStore = defineStore('maintenance', () => {
     const auditStore       = useAuditStore()
@@ -63,9 +64,9 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
 
     // ── Acciones ──────────────────────────────────────────────
 
-    function openMaintenance(
+    async function openMaintenance(
         data: MaintenanceFormData,
-    ): { success: boolean; error?: string } {
+    ): Promise<{ success: boolean; error?: string }> {
         const vehicle = vehiclesStore.vehicles.find(v => v.id === data.vehiculoId)
         if (!vehicle) return { success: false, error: 'Vehículo no encontrado.' }
 
@@ -91,38 +92,56 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
                 error: `El vehículo ${vehicle.placa} ya tiene un registro de mantenimiento abierto.`,
             }
 
-        const newRecord: MaintenanceRecord = {
-            ...data,
-            id:                  generateId(),
-            vehiculoPlaca:       vehicle.placa,
-            vehiculoMarca:       vehicle.marca,
-            vehiculoModelo:      vehicle.modelo,
-            fechaSalida:         null,
-            kilometrajeIngreso:  vehicle.kilometraje, // REQ-32: km actual como referencia
-            kilometrajeSalida:   null,
-            comentariosCierre:   null,
-            proximoMantenimiento: null,
-            estado:              'Abierto',
+        try {
+            const mType = data.tipo.toUpperCase() === 'PREVENTIVO' ? 'PREVENTIVO' : 'CORRECTIVO'
+
+            const res = await api.post('/maintenances', {
+                plate: vehicle.placa,
+                scheduleId: null,
+                maintenanceType: mType,
+                mechanicalWorkshop: data.tecnico || 'Taller Autorizado',
+                cost: data.costo || 0,
+                observations: data.descripcion
+            })
+
+            const backendRecord = res.data
+
+            const newRecord: MaintenanceRecord = {
+                ...data,
+                id:                  backendRecord.id || generateId(),
+                vehiculoPlaca:       vehicle.placa,
+                vehiculoMarca:       vehicle.marca,
+                vehiculoModelo:      vehicle.modelo,
+                fechaSalida:         null,
+                kilometrajeIngreso:  vehicle.kilometraje,
+                kilometrajeSalida:   null,
+                comentariosCierre:   null,
+                proximoMantenimiento: null,
+                estado:              'Abierto',
+            }
+            records.value.unshift(newRecord)
+
+            await vehiclesStore.loadVehicles()
+
+            auditStore.log({
+                accion: 'ABRIR_MANTENIMIENTO',
+                usuario: 'Admin',
+                entidad: `Vehículo ${vehicle.placa}`,
+                detalle: `Mantenimiento ${data.tipo} abierto — ${data.descripcion} | Técnico: ${data.tecnico}`,
+            })
+
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error opening maintenance:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { success: false, error: msg }
         }
-        records.value.unshift(newRecord)
-
-        // REQ-32: cambiar estado operativo del vehículo
-        vehiclesStore.setOperationalStatus(vehicle.id, 'En mantenimiento')
-
-        auditStore.log({
-            accion: 'ABRIR_MANTENIMIENTO',
-            usuario: 'Admin',
-            entidad: `Vehículo ${vehicle.placa}`,
-            detalle: `Mantenimiento ${data.tipo} abierto — ${data.descripcion} | Técnico: ${data.tecnico}`,
-        })
-
-        return { success: true }
     }
 
-    function closeMaintenance(
+    async function closeMaintenance(
         id: string,
         data: MaintenanceCloseData,
-    ): { success: boolean; error?: string } {
+    ): Promise<{ success: boolean; error?: string }> {
         const idx = records.value.findIndex(r => r.id === id)
         if (idx === -1) return { success: false, error: 'Registro no encontrado.' }
 
@@ -135,28 +154,39 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
                 error: 'La fecha del próximo mantenimiento debe ser igual o posterior al día de hoy.',
             }
 
-        records.value[idx] = {
-            ...record,
-            fechaSalida:          data.fechaSalida,
-            kilometrajeSalida:    data.kilometrajeSalida,
-            comentariosCierre:    data.comentariosCierre    ?? null,
-            proximoMantenimiento: data.proximoMantenimiento ?? null,
-            estado:               'Cerrado',
+        try {
+            await api.patch(`/maintenances/${id}`, {
+                endKm: data.kilometrajeSalida,
+                endDate: data.fechaSalida,
+                observations: data.comentariosCierre || 'Mantenimiento finalizado exitosamente'
+            })
+
+            records.value[idx] = {
+                ...record,
+                fechaSalida:          data.fechaSalida,
+                kilometrajeSalida:    data.kilometrajeSalida,
+                comentariosCierre:    data.comentariosCierre    ?? null,
+                proximoMantenimiento: data.proximoMantenimiento ?? null,
+                estado:               'Cerrado',
+            }
+
+            await vehiclesStore.loadVehicles()
+
+            auditStore.log({
+                accion: 'CERRAR_MANTENIMIENTO',
+                usuario: 'Admin',
+                entidad: `Vehículo ${record.vehiculoPlaca}`,
+                detalle: `Mantenimiento cerrado. Km salida: ${data.kilometrajeSalida}${
+                    data.comentariosCierre ? ` — ${data.comentariosCierre}` : ''
+                }`,
+            })
+
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error closing maintenance:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { success: false, error: msg }
         }
-
-        // REQ-33: vehículo vuelve a Disponible usando método del store
-        vehiclesStore.setOperationalStatus(record.vehiculoId, 'Disponible')
-
-        auditStore.log({
-            accion: 'CERRAR_MANTENIMIENTO',
-            usuario: 'Admin',
-            entidad: `Vehículo ${record.vehiculoPlaca}`,
-            detalle: `Mantenimiento cerrado. Km salida: ${data.kilometrajeSalida}${
-                data.comentariosCierre ? ` — ${data.comentariosCierre}` : ''
-            }`,
-        })
-
-        return { success: true }
     }
 
     // REQ-34/35: programar próximo mantenimiento sin cambiar estado
