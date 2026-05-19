@@ -142,7 +142,7 @@ function openCreate() {
 
 function formatPlacaDisplay(val: string): string {
     if (!val) return ''
-    const clean = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 8)
+    const clean = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 6)
     if (clean.length > 3) {
         return clean.substring(0, 3) + '-' + clean.substring(3)
     }
@@ -158,9 +158,9 @@ async function submitCreate() {
     }
 
     const plateClean = createForm.placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-    const plateRegex = /^[A-Z0-9]{3,8}$/
+    const plateRegex = /^[A-Z]{3}[0-9]{3}$/
     if (!plateRegex.test(plateClean)) {
-        createError.value = 'La placa debe ser alfanumérica y tener entre 3 y 8 caracteres.'
+        createError.value = 'La placa debe tener exactamente 3 letras seguidas de 3 números (Ej: ABC-123).'
         return
     }
 
@@ -578,8 +578,8 @@ const docsAlert = computed(() => {
                         </label>
                         <input
                             :value="formatPlacaDisplay(createForm.placa)"
-                            @input="createForm.placa = ($event.target as HTMLInputElement).value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 8)"
-                            maxlength="9"
+                            @input="createForm.placa = ($event.target as HTMLInputElement).value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 6)"
+                            maxlength="7"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400
