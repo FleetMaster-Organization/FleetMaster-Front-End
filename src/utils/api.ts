@@ -19,3 +19,19 @@ api.interceptors.request.use(
         return Promise.reject(error)
     }
 )
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem('token')
+            localStorage.removeItem('refreshToken')
+            localStorage.removeItem('user')
+            if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login?reason=session_expired'
+            }
+        }
+        return Promise.reject(error)
+    }
+)
+
