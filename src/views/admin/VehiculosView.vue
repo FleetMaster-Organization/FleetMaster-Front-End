@@ -58,7 +58,10 @@ const filteredVehicles = computed(() => {
             v =>
                 v.placa.toUpperCase().includes(q) ||
                 v.vin.toUpperCase().includes(q)  ||
-                v.marca.toUpperCase().includes(q),
+                v.marca.toUpperCase().includes(q) ||
+                (v.modelo && v.modelo.toUpperCase().includes(q)) ||
+                (v.tipo && v.tipo.toUpperCase().includes(q)) ||
+                (v.conductorAsignadoNombre && v.conductorAsignadoNombre.toUpperCase().includes(q)),
         )
     }
     return result
@@ -135,6 +138,15 @@ function openCreate() {
     createForm.tecnomecanica = { fechaExpedicion: '', fechaVencimiento: '' }
     createError.value        = ''
     showCreateModal.value    = true
+}
+
+function formatPlacaDisplay(val: string): string {
+    if (!val) return ''
+    const clean = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 6)
+    if (clean.length > 3) {
+        return clean.substring(0, 3) + '-' + clean.substring(3)
+    }
+    return clean
 }
 
 async function submitCreate() {
@@ -526,7 +538,9 @@ const docsAlert = computed(() => {
                             VIN <span class="text-red-500">*</span>
                         </label>
                         <input
-                            v-model="createForm.vin"
+                            :value="createForm.vin"
+                            @input="createForm.vin = ($event.target as HTMLInputElement).value.replace(/\s/g, '').toUpperCase().substring(0, 17)"
+                            maxlength="17"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400
@@ -539,7 +553,9 @@ const docsAlert = computed(() => {
                             Placa <span class="text-red-500">*</span>
                         </label>
                         <input
-                            v-model="createForm.placa"
+                            :value="formatPlacaDisplay(createForm.placa)"
+                            @input="createForm.placa = ($event.target as HTMLInputElement).value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 6)"
+                            maxlength="7"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400
@@ -556,7 +572,8 @@ const docsAlert = computed(() => {
                             Marca <span class="text-red-500">*</span>
                         </label>
                         <input
-                            v-model="createForm.marca"
+                            v-model.trim="createForm.marca"
+                            maxlength="50"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
@@ -568,7 +585,8 @@ const docsAlert = computed(() => {
                             Modelo <span class="text-red-500">*</span>
                         </label>
                         <input
-                            v-model="createForm.modelo"
+                            v-model.trim="createForm.modelo"
+                            maxlength="50"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
@@ -584,6 +602,7 @@ const docsAlert = computed(() => {
                         <input
                             v-model.number="createForm.anio"
                             type="number" min="1990" :max="new Date().getFullYear() + 1"
+                            @keypress="['-', '.', 'e', 'E'].includes($event.key) && $event.preventDefault()"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                         />
@@ -605,6 +624,7 @@ const docsAlert = computed(() => {
                         <input
                             v-model.number="createForm.kilometraje"
                             type="number" min="0"
+                            @keypress="['-', '.', 'e', 'E'].includes($event.key) && $event.preventDefault()"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                         />
@@ -733,7 +753,8 @@ const docsAlert = computed(() => {
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1.5">Marca</label>
                         <input
-                            v-model="editForm.marca"
+                            v-model.trim="editForm.marca"
+                            maxlength="50"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
@@ -742,7 +763,8 @@ const docsAlert = computed(() => {
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1.5">Modelo</label>
                         <input
-                            v-model="editForm.modelo"
+                            v-model.trim="editForm.modelo"
+                            maxlength="50"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
@@ -757,6 +779,7 @@ const docsAlert = computed(() => {
                         <input
                             v-model.number="editForm.anio"
                             type="number" min="1990" :max="new Date().getFullYear() + 1"
+                            @keypress="['-', '.', 'e', 'E'].includes($event.key) && $event.preventDefault()"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                         />
@@ -776,6 +799,7 @@ const docsAlert = computed(() => {
                         <input
                             v-model.number="editForm.kilometraje"
                             type="number" min="0"
+                            @keypress="['-', '.', 'e', 'E'].includes($event.key) && $event.preventDefault()"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                         />

@@ -48,6 +48,24 @@ function isoNow(): string {
     return new Date().toISOString()
 }
 
+function mapFrontendTypeToBackendClass(type: VehicleType): string {
+    const t = type.toUpperCase()
+    if (t.includes('CAMION') || t.includes('CAMIÓ')) return 'CAMION'
+    if (t.includes('MOTO')) return 'MOTOCICLETA'
+    if (t.includes('AUTOMOVIL') || t.includes('AUTOMÓVIL')) return 'AUTOMOVIL'
+    if (t.includes('BUS')) return 'BUS'
+    if (t.includes('VAN')) return 'CAMIONETA'
+    return 'OTRO'
+}
+
+function mapVehicleTypeToBodyType(type: VehicleType): string {
+    const t = type.toUpperCase()
+    if (t.includes('AUTOMOVIL') || t.includes('AUTOMÓVIL')) return 'SEDAN'
+    if (t.includes('VAN')) return 'VAN'
+    if (t.includes('CAMION') || t.includes('CAMIÓ')) return 'PICKUP'
+    return 'OTRO'
+}
+
 // ── Store ────────────────────────────────────────────────────────────────────
 
 export const useVehiclesStore = defineStore('vehicles', () => {
@@ -182,8 +200,8 @@ export const useVehiclesStore = defineStore('vehicles', () => {
                 displacementCc: 1600,
                 color: 'Blanco',
                 service: 'PARTICULAR',
-                vehicleClass: data.tipo.toUpperCase(),
-                bodyType: 'ESTACAS',
+                vehicleClass: mapFrontendTypeToBackendClass(data.tipo),
+                bodyType: mapVehicleTypeToBodyType(data.tipo),
                 fuelType: 'GASOLINA',
                 engineNumber: `ENG-${Date.now()}`,
                 initialKm: data.kilometraje,
@@ -238,7 +256,7 @@ export const useVehiclesStore = defineStore('vehicles', () => {
                 displacementCc: 1600,
                 color: 'Blanco',
                 service: 'PARTICULAR',
-                bodyType: 'ESTACAS',
+                bodyType: mapVehicleTypeToBodyType(data.tipo),
                 fuelType: 'GASOLINA',
                 engineNumber: `ENG-${Date.now()}`,
                 currentKm: data.kilometraje
