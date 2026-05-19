@@ -116,13 +116,13 @@ function openCreate() {
     showFormModal.value = true
 }
 
-function submitForm() {
+async function submitForm() {
     formError.value = ''
     if (!form.vehiculoId || !form.descripcion || !form.tecnico) {
         formError.value = 'Completa todos los campos obligatorios.'
         return
     }
-    const result = maintenanceStore.openMaintenance({ ...form })
+    const result = await maintenanceStore.openMaintenance({ ...form })
     if (result.success) {
         showFormModal.value = false
     } else {
@@ -150,14 +150,14 @@ function openClose(r: MaintenanceRecord) {
     showCloseModal.value             = true
 }
 
-function submitClose() {
+async function submitClose() {
     closeError.value = ''
     if (!closeForm.fechaSalida || !closeForm.kilometrajeSalida) {
         closeError.value = 'La fecha de salida y el kilometraje son obligatorios.'
         return
     }
     if (!closingTarget.value) return
-    const result = maintenanceStore.closeMaintenance(closingTarget.value.id, {
+    const result = await maintenanceStore.closeMaintenance(closingTarget.value.id, {
         fechaSalida:          closeForm.fechaSalida,
         kilometrajeSalida:    closeForm.kilometrajeSalida,
         comentariosCierre:    closeForm.comentariosCierre    || undefined,
