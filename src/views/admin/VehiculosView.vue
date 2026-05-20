@@ -58,7 +58,10 @@ const filteredVehicles = computed(() => {
             v =>
                 v.placa.toUpperCase().includes(q) ||
                 v.vin.toUpperCase().includes(q)  ||
-                v.marca.toUpperCase().includes(q),
+                v.marca.toUpperCase().includes(q) ||
+                (v.modelo && v.modelo.toUpperCase().includes(q)) ||
+                (v.tipo && v.tipo.toUpperCase().includes(q)) ||
+                (v.conductorAsignadoNombre && v.conductorAsignadoNombre.toUpperCase().includes(q)),
         )
     }
     return result
@@ -137,13 +140,46 @@ function openCreate() {
     showCreateModal.value    = true
 }
 
-function submitCreate() {
+function formatPlacaDisplay(val: string): string {
+    if (!val) return ''
+    const clean = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 6)
+    if (clean.length > 3) {
+        return clean.substring(0, 3) + '-' + clean.substring(3)
+    }
+    return clean
+}
+
+async function submitCreate() {
     createError.value = ''
 
     if (!createForm.vin || !createForm.placa || !createForm.marca || !createForm.modelo) {
         createError.value = 'Por favor completa todos los campos obligatorios.'
         return
     }
+
+    const plateClean = createForm.placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+    const plateRegex = /^[A-Z]{3}[0-9]{3}$/
+    if (!plateRegex.test(plateClean)) {
+        createError.value = 'La placa debe tener exactamente 3 letras seguidas de 3 números (Ej: ABC-123).'
+        return
+    }
+
+    const vinClean = createForm.vin.replace(/\s/g, '').toUpperCase()
+    if (vinClean.length !== 17) {
+        createError.value = 'El VIN debe tener exactamente 17 caracteres.'
+        return
+    }
+
+    if (!store.isPlacaUnique(plateClean)) {
+        createError.value = 'Esta placa ya se encuentra registrada.'
+        return
+    }
+
+    if (!store.isVinUnique(vinClean)) {
+        createError.value = 'Este VIN ya se encuentra registrado.'
+        return
+    }
+
     if (createForm.kilometraje < 0) {
         createError.value = 'El kilometraje debe ser un valor positivo.'
         return
@@ -157,7 +193,7 @@ function submitCreate() {
         return
     }
 
-    const result = store.createVehicle({ ...createForm }, currentUser.value)
+    const result = await store.createVehicle({ ...createForm }, currentUser.value)
 
     if (result.ok) {
         showCreateModal.value = false
@@ -206,7 +242,7 @@ function openEdit(v: Vehicle) {
     showEditModal.value = true
 }
 
-function submitEdit() {
+async function submitEdit() {
     editError.value = ''
     if (!editingVehicle.value) return
 
@@ -223,7 +259,7 @@ function submitEdit() {
         return
     }
 
-    const result = store.updateVehicle(
+    const result = await store.updateVehicle(
         editingVehicle.value.id,
         { ...editForm },
         currentUser.value,
@@ -247,11 +283,11 @@ function openSell(v: Vehicle) {
     showSellModal.value = true
 }
 
-function confirmSell() {
+async function confirmSell() {
     if (!sellTarget.value) return
     // Para la demo se asume sin asignación/mantenimiento abierto;
     // en integración real estos flags vienen de los stores correspondientes.
-    const result = store.changeAdministrativeStatus(
+    const result = await store.changeAdministrativeStatus(
         sellTarget.value.id,
         'Vendido',
         currentUser.value,
@@ -526,7 +562,9 @@ const docsAlert = computed(() => {
                             VIN <span class="text-red-500">*</span>
                         </label>
                         <input
-                            v-model="createForm.vin"
+                            :value="createForm.vin"
+                            @input="createForm.vin = ($event.target as HTMLInputElement).value.replace(/\s/g, '').toUpperCase().substring(0, 17)"
+                            maxlength="17"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400
@@ -539,7 +577,9 @@ const docsAlert = computed(() => {
                             Placa <span class="text-red-500">*</span>
                         </label>
                         <input
-                            v-model="createForm.placa"
+                            :value="formatPlacaDisplay(createForm.placa)"
+                            @input="createForm.placa = ($event.target as HTMLInputElement).value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 6)"
+                            maxlength="7"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400
@@ -556,7 +596,8 @@ const docsAlert = computed(() => {
                             Marca <span class="text-red-500">*</span>
                         </label>
                         <input
-                            v-model="createForm.marca"
+                            v-model.trim="createForm.marca"
+                            maxlength="50"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
@@ -568,7 +609,8 @@ const docsAlert = computed(() => {
                             Modelo <span class="text-red-500">*</span>
                         </label>
                         <input
-                            v-model="createForm.modelo"
+                            v-model.trim="createForm.modelo"
+                            maxlength="50"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
@@ -584,6 +626,7 @@ const docsAlert = computed(() => {
                         <input
                             v-model.number="createForm.anio"
                             type="number" min="1990" :max="new Date().getFullYear() + 1"
+                            @keypress="['-', '.', 'e', 'E'].includes($event.key) && $event.preventDefault()"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                         />
@@ -605,6 +648,7 @@ const docsAlert = computed(() => {
                         <input
                             v-model.number="createForm.kilometraje"
                             type="number" min="0"
+                            @keypress="['-', '.', 'e', 'E'].includes($event.key) && $event.preventDefault()"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                         />
@@ -733,7 +777,8 @@ const docsAlert = computed(() => {
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1.5">Marca</label>
                         <input
-                            v-model="editForm.marca"
+                            v-model.trim="editForm.marca"
+                            maxlength="50"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
@@ -742,7 +787,8 @@ const docsAlert = computed(() => {
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1.5">Modelo</label>
                         <input
-                            v-model="editForm.modelo"
+                            v-model.trim="editForm.modelo"
+                            maxlength="50"
                             type="text"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
@@ -757,6 +803,7 @@ const docsAlert = computed(() => {
                         <input
                             v-model.number="editForm.anio"
                             type="number" min="1990" :max="new Date().getFullYear() + 1"
+                            @keypress="['-', '.', 'e', 'E'].includes($event.key) && $event.preventDefault()"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                         />
@@ -765,8 +812,9 @@ const docsAlert = computed(() => {
                         <label class="block text-xs font-semibold text-slate-600 mb-1.5">Tipo</label>
                         <select
                             v-model="editForm.tipo"
-                            class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
-                                focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                            disabled
+                            class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-100
+                                text-slate-500 cursor-not-allowed focus:outline-none transition-all"
                         >
                             <option v-for="t in vehicleTypes" :key="t" :value="t">{{ t }}</option>
                         </select>
@@ -776,6 +824,7 @@ const docsAlert = computed(() => {
                         <input
                             v-model.number="editForm.kilometraje"
                             type="number" min="0"
+                            @keypress="['-', '.', 'e', 'E'].includes($event.key) && $event.preventDefault()"
                             class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
                                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                         />
