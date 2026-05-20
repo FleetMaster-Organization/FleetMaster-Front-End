@@ -2,149 +2,145 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { AppUser, UserFormData, UserRole, UserStatus } from '@/types'
 import { useAuditStore } from '@/stores/audit'
+import { api } from '@/utils/api'
 
-// Simulación de hash — en producción usar bcrypt
-function fakeHash(password: string): string {
-    return btoa(password + ':fleetmaster_salt')
+const ROLE_MAP: Record<UserRole, string> = {
+    admin: 'ff4b650b-9765-4859-9545-fe28f168d60c',
+    coordinator: 'dd34042b-f399-48a9-a6ef-688df176dbe9',
+    dispatcher: '9b56ce70-d44e-4006-92aa-fbd86bfd6087',
+    mechanic: '345625ce-b6c0-4a06-96ec-b4fdbc6e14c8',
+}
+
+function mapBackendRoleToFrontend(roles: string[]): UserRole {
+    if (!roles || roles.length === 0) return 'dispatcher'
+    const role = roles[0]
+    if (role === 'ROLE_ADMINISTRADOR') return 'admin'
+    if (role === 'ROLE_COORDINADOR') return 'coordinator'
+    if (role === 'ROLE_MECANICO') return 'mechanic'
+    return 'dispatcher'
 }
 
 export const useUsersStore = defineStore('users', () => {
     const auditStore = useAuditStore()
-
-    const users = ref<AppUser[]>([
-        {
-        id: 'u001', nombreCompleto: 'Ali Baba', email: 'admin@logifast.com',
-        passwordHash: fakeHash('admin123'), rol: 'admin',
-        estado: 'Activo', creadoEn: '2024-01-01T08:00:00Z', actualizadoEn: '2024-01-01T08:00:00Z',
-        },
-        {
-        id: 'u002', nombreCompleto: 'Laura Coordinadora', email: 'laura@logifast.com',
-        passwordHash: fakeHash('coord456'), rol: 'coordinator',
-        estado: 'Activo', creadoEn: '2024-01-15T09:00:00Z', actualizadoEn: '2024-03-10T10:00:00Z',
-        },
-        {
-        id: 'u003', nombreCompleto: 'Técnico Juan', email: 'juan.tec@logifast.com',
-        passwordHash: fakeHash('mec789'), rol: 'mechanic',
-        estado: 'Activo', creadoEn: '2024-02-01T08:00:00Z', actualizadoEn: '2024-02-01T08:00:00Z',
-        },
-        {
-        id: 'u004', nombreCompleto: 'Despachador Carlos', email: 'carlos.desp@logifast.com',
-        passwordHash: fakeHash('desp000'), rol: 'dispatcher',
-        estado: 'Activo', creadoEn: '2024-02-10T07:30:00Z', actualizadoEn: '2024-04-01T09:00:00Z',
-        },
-        {
-        id: 'u005', nombreCompleto: 'Técnico Ramírez', email: 'ramirez.tec@logifast.com',
-        passwordHash: fakeHash('mec321'), rol: 'mechanic',
-        estado: 'Activo', creadoEn: '2024-03-05T10:00:00Z', actualizadoEn: '2024-03-05T10:00:00Z',
-        },
-        {
-        id: 'u006', nombreCompleto: 'Coordinador1', email: 'coord1@logifast.com',
-        passwordHash: fakeHash('coord111'), rol: 'coordinator',
-        estado: 'Activo', creadoEn: '2024-03-20T08:00:00Z', actualizadoEn: '2024-03-20T08:00:00Z',
-        },
-        {
-        id: 'u007', nombreCompleto: 'Técnico Gómez', email: 'gomez.tec@logifast.com',
-        passwordHash: fakeHash('mec654'), rol: 'mechanic',
-        estado: 'Inactivo', creadoEn: '2024-04-01T09:00:00Z', actualizadoEn: '2024-12-01T11:00:00Z',
-        },
-        {
-        id: 'u008', nombreCompleto: 'Sandra Despachadora', email: 'sandra.desp@logifast.com',
-        passwordHash: fakeHash('desp999'), rol: 'dispatcher',
-        estado: 'Activo', creadoEn: '2024-04-15T07:00:00Z', actualizadoEn: '2024-04-15T07:00:00Z',
-        },
-    ])
+    const users = ref<AppUser[]>([])
+    const isLoading = ref(false)
 
     const activos   = computed(() => users.value.filter(u => u.estado === 'Activo'))
     const inactivos = computed(() => users.value.filter(u => u.estado === 'Inactivo'))
     const porRol    = (rol: UserRole) => computed(() => users.value.filter(u => u.rol === rol))
 
-    function generateId() {
-        return 'u' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4)
-    }
-
-    function emailExists(email: string, excludeId?: string): boolean {
-        return users.value.some(u => u.email === email && u.id !== excludeId)
-    }
-
-    function createUser(data: UserFormData): { success: boolean; error?: string } {
-        if (emailExists(data.email))
-        return { success: false, error: `El email "${data.email}" ya está en uso.` }
-
-        const now = new Date().toISOString()
-        const newUser: AppUser = {
-        id: generateId(),
-        nombreCompleto: data.nombreCompleto,
-        email: data.email,
-        passwordHash: fakeHash(data.password),
-        rol: data.rol,
-        estado: 'Activo',
-        creadoEn: now,
-        actualizadoEn: now,
+    async function loadUsers() {
+        isLoading.value = true
+        try {
+            const res = await api.get<any[]>('/admin/users')
+            const list = res.data || []
+            users.value = list.map((item: any) => ({
+                id: item.idUser,
+                nombreCompleto: item.fullName,
+                email: item.email,
+                passwordHash: '',
+                rol: mapBackendRoleToFrontend(item.roles),
+                estado: item.enabled ? 'Activo' : 'Inactivo',
+                creadoEn: new Date().toISOString(),
+                actualizadoEn: new Date().toISOString()
+            }))
+        } catch (error) {
+            console.error('Error loading users:', error)
+        } finally {
+            isLoading.value = false
         }
-        users.value.unshift(newUser)
-
-        auditStore.log({
-        usuario: 'Admin',
-        accion: 'CREAR_USUARIO',
-        entidad: `Usuario ${data.nombreCompleto}`,
-        detalle: `Cuenta creada con rol ${data.rol}`,
-        })
-        return { success: true }
     }
 
-    function updateUser(
+    async function createUser(data: UserFormData): Promise<{ success: boolean; error?: string }> {
+        try {
+            const roleId = ROLE_MAP[data.rol]
+            await api.post('/admin/users', {
+                fullName: data.nombreCompleto,
+                email: data.email,
+                password: data.password,
+                roleId: roleId
+            })
+
+            await loadUsers()
+
+            auditStore.log({
+                usuario: 'Admin',
+                accion: 'CREAR_USUARIO',
+                entidad: `Usuario ${data.nombreCompleto}`,
+                detalle: `Cuenta creada con rol ${data.rol}`,
+            })
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error creating user:', error)
+            const msg = error.response?.data?.message || 'Error al crear el usuario en el servidor.'
+            return { success: false, error: msg }
+        }
+    }
+
+    async function updateUser(
         id: string,
         data: Omit<UserFormData, 'password'> & { password?: string }
-    ): { success: boolean; error?: string } {
-        const idx = users.value.findIndex(u => u.id === id)
-        if (idx === -1) return { success: false, error: 'Usuario no encontrado.' }
-        if (emailExists(data.email, id))
-        return { success: false, error: `El email "${data.email}" ya está en uso.` }
+    ): Promise<{ success: boolean; error?: string }> {
+        try {
+            const roleId = ROLE_MAP[data.rol]
+            await api.put(`/admin/users/${id}`, {
+                fullName: data.nombreCompleto,
+                email: data.email,
+                roleId: roleId
+            })
 
-        const prev = users.value[idx]!
-        const rolCambiado = prev.rol !== data.rol
+            if (data.password) {
+                await api.patch(`/admin/users/${id}/reset-password`, {
+                    newPassword: data.password
+                })
+            }
 
-        users.value[idx] = {
-        ...prev,
-        nombreCompleto: data.nombreCompleto,
-        email: data.email,
-        rol: data.rol,
-        estado: data.estado,
-        passwordHash: data.password ? fakeHash(data.password) : prev.passwordHash,
-        actualizadoEn: new Date().toISOString(),
+            const user = users.value.find(u => u.id === id)
+            if (user && user.estado !== data.estado) {
+                const action = data.estado === 'Activo' ? 'enable' : 'disable'
+                await api.patch(`/admin/users/${id}/${action}`)
+            }
+
+            await loadUsers()
+
+            auditStore.log({
+                usuario: 'Admin',
+                accion: 'EDITAR_USUARIO',
+                entidad: `Usuario ${data.nombreCompleto}`,
+                detalle: 'Información de usuario actualizada en el servidor',
+            })
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error updating user:', error)
+            const msg = error.response?.data?.message || 'Error al actualizar el usuario.'
+            return { success: false, error: msg }
         }
-
-        auditStore.log({
-        usuario: 'Admin',
-        accion: rolCambiado ? 'CAMBIAR_ROL' : 'EDITAR_USUARIO',
-        entidad: `Usuario ${data.nombreCompleto}`,
-        detalle: rolCambiado
-            ? `Rol cambiado: ${prev.rol} → ${data.rol}`
-            : 'Información de usuario actualizada',
-        })
-        return { success: true }
     }
 
-    function toggleStatus(id: string, accion: 'activar' | 'desactivar'): { success: boolean; error?: string } {
-        const idx = users.value.findIndex(u => u.id === id)
-        if (idx === -1) return { success: false, error: 'Usuario no encontrado.' }
+    async function toggleStatus(id: string, accion: 'activar' | 'desactivar'): Promise<{ success: boolean; error?: string }> {
+        try {
+            const actionPath = accion === 'activar' ? 'enable' : 'disable'
+            await api.patch(`/admin/users/${id}/${actionPath}`)
+            
+            await loadUsers()
 
-        const user = users.value[idx]!
-        const nuevoEstado: UserStatus = accion === 'activar' ? 'Activo' : 'Inactivo'
-
-        users.value[idx] = { ...user, estado: nuevoEstado, actualizadoEn: new Date().toISOString() }
-
-        auditStore.log({
-        usuario: 'Admin',
-        accion: accion === 'activar' ? 'ACTIVAR_USUARIO' : 'DESACTIVAR_USUARIO',
-        entidad: `Usuario ${user.nombreCompleto}`,
-        detalle: `Cuenta ${nuevoEstado === 'Activo' ? 'activada' : 'desactivada'} por administrador`,
-        })
-        return { success: true }
+            const user = users.value.find(u => u.id === id)
+            auditStore.log({
+                usuario: 'Admin',
+                accion: accion === 'activar' ? 'ACTIVAR_USUARIO' : 'DESACTIVAR_USUARIO',
+                entidad: `Usuario ${user?.nombreCompleto || id}`,
+                detalle: `Cuenta ${accion === 'activar' ? 'activada' : 'desactivada'} por administrador`,
+            })
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error toggling user status:', error)
+            const msg = error.response?.data?.message || 'Error al cambiar estado del usuario.'
+            return { success: false, error: msg }
+        }
     }
 
     return {
-        users, activos, inactivos, porRol,
-        emailExists, createUser, updateUser, toggleStatus,
+        users, activos, inactivos, porRol, isLoading,
+        loadUsers, createUser, updateUser, toggleStatus,
     }
 })
