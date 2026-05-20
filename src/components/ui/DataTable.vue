@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="T extends Record<string, unknown>">
+<script setup lang="ts" generic="T">
 interface Column {
     key: string
     label: string
@@ -74,7 +74,7 @@ const alignClass = (align?: string) => {
                     <template v-else>
                         <tr
                             v-for="row in rows"
-                            :key="String(row[rowKey])"
+                            :key="String((row as Record<string, unknown>)[rowKey])"
                             class="border-b border-slate-100 hover:bg-slate-50/70 transition-colors"
                         >
                             <td
@@ -88,8 +88,8 @@ const alignClass = (align?: string) => {
                                     En los slots usa siempre `row.campo` directamente.
                                     Usa `value` solo cuando hagas tu propio cast: `value as string`.
                                 -->
-                                <slot :name="`cell-${col.key}`" :row="row" :value="row[col.key]">
-                                    {{ row[col.key] ?? '—' }}
+                                <slot :name="`cell-${col.key}`" :row="row" :value="(row as Record<string, unknown>)[col.key]">
+                                    {{ (row as Record<string, unknown>)[col.key] ?? '—' }}
                                 </slot>
                             </td>
                         </tr>
