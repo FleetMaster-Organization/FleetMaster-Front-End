@@ -7,3 +7,10 @@
   to = "http://158.247.122.168:8080/:splat"
   status = 200
   force = true
+
+# SPA fallback: todas las rutas no encontradas van a index.html
+# para que Vue Router las maneje en el cliente
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
