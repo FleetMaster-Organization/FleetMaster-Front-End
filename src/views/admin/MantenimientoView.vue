@@ -53,6 +53,15 @@ const columnsHistorial = [
 ]
 
 // ── Helpers ───────────────────────────────────────────────────
+function formatPlacaDisplay(val: string): string {
+    if (!val) return ''
+    const clean = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 6)
+    if (clean.length > 3) {
+        return clean.substring(0, 3) + '-' + clean.substring(3)
+    }
+    return clean
+}
+
 function fmtDate(iso: string | null): string {
     if (!iso) return '—'
     return new Intl.DateTimeFormat('es-CO', {
@@ -245,7 +254,7 @@ const vehiculoCierre = computed(() =>
             <template #cell-vehiculo="{ row }">
                 <div>
                     <span class="font-mono font-bold text-xs tracking-widest text-slate-800">
-                        {{ (row as MaintenanceRecord).vehiculoPlaca }}
+                        {{ formatPlacaDisplay((row as MaintenanceRecord).vehiculoPlaca) }}
                     </span>
                     <p class="text-xs text-slate-400">
                         {{ (row as MaintenanceRecord).vehiculoMarca }}
@@ -317,7 +326,7 @@ const vehiculoCierre = computed(() =>
             <template #cell-vehiculo="{ row }">
                 <div>
                     <span class="font-mono font-bold text-xs tracking-widest text-slate-800">
-                        {{ (row as MaintenanceRecord).vehiculoPlaca }}
+                        {{ formatPlacaDisplay((row as MaintenanceRecord).vehiculoPlaca) }}
                     </span>
                     <p class="text-xs text-slate-400">
                         {{ (row as MaintenanceRecord).vehiculoMarca }}
@@ -401,7 +410,7 @@ const vehiculoCierre = computed(() =>
                     >
                         <option value="">Selecciona un vehículo...</option>
                         <option v-for="v in vehiculosElegibles" :key="v.id" :value="v.id">
-                            {{ v.placa }} — {{ v.marca }} {{ v.modelo }}
+                            {{ formatPlacaDisplay(v.placa) }} — {{ v.marca }} {{ v.modelo }}
                             ({{ v.estadoOperativo }})
                         </option>
                     </select>
@@ -520,7 +529,7 @@ const vehiculoCierre = computed(() =>
                     class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm"
                 >
                     <p class="font-semibold text-slate-700">
-                        {{ closingTarget.vehiculoPlaca }} —
+                        {{ formatPlacaDisplay(closingTarget.vehiculoPlaca) }} —
                         {{ closingTarget.vehiculoMarca }} {{ closingTarget.vehiculoModelo }}
                     </p>
                     <p class="text-xs text-slate-400 mt-0.5">

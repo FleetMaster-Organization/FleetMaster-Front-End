@@ -58,6 +58,15 @@ const columnsHistorial = [
 ]
 
 // ── Helpers de formato ────────────────────────────────────────
+function formatPlacaDisplay(val: string): string {
+    if (!val) return ''
+    const clean = val.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 6)
+    if (clean.length > 3) {
+        return clean.substring(0, 3) + '-' + clean.substring(3)
+    }
+    return clean
+}
+
 function fmtDateTime(iso: string | null): string {
     if (!iso) return '—'
     return new Intl.DateTimeFormat('es-CO', {
@@ -300,7 +309,7 @@ const kmMinimoActual = computed(() => {
             <template #cell-vehiculo="{ row }">
                 <div>
                     <span class="font-mono font-bold text-xs tracking-widest text-slate-800">
-                        {{ (row as Assignment).vehiculoPlaca }}
+                        {{ formatPlacaDisplay((row as Assignment).vehiculoPlaca) }}
                     </span>
                     <p class="text-xs text-slate-400">
                         {{ (row as Assignment).vehiculoMarca }} {{ (row as Assignment).vehiculoModelo }}
@@ -363,7 +372,7 @@ const kmMinimoActual = computed(() => {
             <template #cell-vehiculo="{ row }">
                 <div>
                     <span class="font-mono font-bold text-xs tracking-widest text-slate-800">
-                        {{ (row as Assignment).vehiculoPlaca }}
+                        {{ formatPlacaDisplay((row as Assignment).vehiculoPlaca) }}
                     </span>
                     <p class="text-xs text-slate-400">
                         {{ (row as Assignment).vehiculoMarca }} {{ (row as Assignment).vehiculoModelo }}
@@ -427,7 +436,7 @@ const kmMinimoActual = computed(() => {
                     >
                         <option value="">Selecciona un vehículo...</option>
                         <option v-for="v in vehiculosDisponibles" :key="v.id" :value="v.id">
-                            {{ v.placa }} — {{ v.marca }} {{ v.modelo }}
+                            {{ formatPlacaDisplay(v.placa) }} — {{ v.marca }} {{ v.modelo }}
                             ({{ new Intl.NumberFormat('es-CO').format(v.kilometraje) }} km)
                         </option>
                     </select>
@@ -569,7 +578,7 @@ const kmMinimoActual = computed(() => {
                     class="p-3 bg-slate-50 rounded-lg border border-slate-200 text-sm"
                 >
                     <p class="font-semibold text-slate-700">
-                        {{ closingTarget.vehiculoPlaca }} —
+                        {{ formatPlacaDisplay(closingTarget.vehiculoPlaca) }} —
                         {{ closingTarget.vehiculoMarca }} {{ closingTarget.vehiculoModelo }}
                     </p>
                     <p class="text-xs text-slate-500 mt-0.5">
