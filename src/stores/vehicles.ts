@@ -9,8 +9,10 @@ import type {
     VehicleAdministrativeStatus,
     VehicleDocumentType,
     DocumentLegalStatus,
+    VehicleType,
 } from '@/types'
 import { useAuditStore } from './audit'
+import { api } from '@/utils/api'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,83 +48,81 @@ function isoNow(): string {
     return new Date().toISOString()
 }
 
+function mapFrontendTypeToBackendClass(type: VehicleType): string {
+    const t = type.toUpperCase()
+    if (t.includes('CAMION') || t.includes('CAMIÓ')) return 'CAMION'
+    if (t.includes('MOTO')) return 'MOTOCICLETA'
+    if (t.includes('AUTOMOVIL') || t.includes('AUTOMÓVIL')) return 'AUTOMOVIL'
+    if (t.includes('BUS')) return 'BUS'
+    if (t.includes('VAN')) return 'CAMIONETA'
+    return 'OTRO'
+}
+
+function mapVehicleTypeToBodyType(type: VehicleType): string {
+    const t = type.toUpperCase()
+    if (t.includes('AUTOMOVIL') || t.includes('AUTOMÓVIL')) return 'SEDAN'
+    if (t.includes('VAN')) return 'VAN'
+    if (t.includes('CAMION') || t.includes('CAMIÓ')) return 'PICKUP'
+    return 'OTRO'
+}
+
+function parseBackendDate(val: any): string {
+    if (!val) return ''
+    if (typeof val === 'string') {
+        return val.substring(0, 10)
+    }
+    if (Array.isArray(val)) {
+        const y = val[0]
+        const m = String(val[1]).padStart(2, '0')
+        const d = String(val[2]).padStart(2, '0')
+        return `${y}-${m}-${d}`
+    }
+    return ''
+}
+
+function mapLegalStatus(backend: string): DocumentLegalStatus {
+    if (!backend) return 'Vigente'
+    const b = backend.toUpperCase()
+    if (b === 'VALIDO' || b === 'VALID' || b === 'VIGENTE') return 'Vigente'
+    if (b === 'RENOVACION_PENDIENTE' || b === 'POR_VENCER') return 'Por vencer'
+    if (b === 'EXPIRADO' || b === 'EXPIRED' || b === 'VENCIDO') return 'Vencido'
+    return 'Vigente'
+}
+
 // ── Store ────────────────────────────────────────────────────────────────────
 
 export const useVehiclesStore = defineStore('vehicles', () => {
     const audit = useAuditStore()
 
     // ── Estado ───────────────────────────────────────────────
-    const vehicles = ref<Vehicle[]>([
-        // Datos de ejemplo
-        {
-            id: 'v1',
-            vin: '1HGCM82633A123456',
-            placa: 'ABC-123',
-            marca: 'Chevrolet',
-            modelo: 'NPR',
-            anio: 2021,
-            tipo: 'Camión',
-            estadoOperativo: 'Disponible',
-            estadoAdministrativo: 'Activo',
-            kilometraje: 45000,
-            conductorAsignadoId: null,
-            conductorAsignadoNombre: null,
-            documentos: [
-                {
-                    id: 'vd1',
-                    vehiculoId: 'v1',
-                    tipo: 'SOAT',
-                    fechaExpedicion: '2024-01-15',
-                    fechaVencimiento: '2025-01-15',
-                    estadoLegal: calcDocumentLegalStatus('2025-01-15'),
-                },
-                {
-                    id: 'vd2',
-                    vehiculoId: 'v1',
-                    tipo: 'TECNOMECANICA',
-                    fechaExpedicion: '2023-06-10',
-                    fechaVencimiento: '2025-06-10',
-                    estadoLegal: calcDocumentLegalStatus('2025-06-10'),
-                },
-            ],
-            creadoEn: '2024-01-15T08:00:00Z',
-            actualizadoEn: '2024-01-15T08:00:00Z',
-        },
-        {
-            id: 'v2',
-            vin: '2T1BURHE0JC057348',
-            placa: 'XYZ-789',
-            marca: 'Toyota',
-            modelo: 'Hilux',
-            anio: 2022,
-            tipo: 'Automóvil',
-            estadoOperativo: 'En ruta',
-            estadoAdministrativo: 'Activo',
-            kilometraje: 28000,
-            conductorAsignadoId: 'd1',
-            conductorAsignadoNombre: 'Carlos Pérez',
-            documentos: [
-                {
-                    id: 'vd3',
-                    vehiculoId: 'v2',
-                    tipo: 'SOAT',
-                    fechaExpedicion: '2024-03-01',
-                    fechaVencimiento: '2026-05-20',
-                    estadoLegal: calcDocumentLegalStatus('2026-05-20'),
-                },
-                {
-                    id: 'vd4',
-                    vehiculoId: 'v2',
-                    tipo: 'TECNOMECANICA',
-                    fechaExpedicion: '2024-03-01',
-                    fechaVencimiento: '2026-03-01',
-                    estadoLegal: calcDocumentLegalStatus('2026-03-01'),
-                },
-            ],
-            creadoEn: '2024-03-01T09:00:00Z',
-            actualizadoEn: '2024-03-01T09:00:00Z',
-        },
-    ])
+    const vehicles = ref<Vehicle[]>([])
+    const isLoading = ref(false)
+
+    function mapOperationalStatus(backend: string): VehicleOperationalStatus {
+        const b = backend.toUpperCase()
+        if (b === 'DISPONIBLE') return 'Disponible'
+        if (b === 'EN_RUTA') return 'En ruta'
+        if (b === 'EN_MANTENIMIENTO') return 'En mantenimiento'
+        return 'Disponible'
+    }
+
+    function mapAdministrativeStatus(backend: string): VehicleAdministrativeStatus {
+        const b = backend.toUpperCase()
+        if (b === 'ACTIVO') return 'Activo'
+        if (b === 'INACTIVO') return 'Inactivo'
+        if (b === 'VENDIDO') return 'Vendido'
+        return 'Activo'
+    }
+
+    function mapVehicleType(backend: string): VehicleType {
+        const b = backend.toUpperCase()
+        if (b.includes('CAMION') || b.includes('CAMIÓ')) return 'Camión'
+        if (b.includes('VAN')) return 'Van'
+        if (b.includes('MOTO')) return 'Moto'
+        if (b.includes('BUS')) return 'Bus'
+        return 'Automóvil'
+    }
+
 
     // ── Computed ─────────────────────────────────────────────
 
@@ -133,182 +133,205 @@ export const useVehiclesStore = defineStore('vehicles', () => {
 
     const totalVehicles = computed(() => vehicles.value.length)
     const availableVehicles = computed(() =>
-        vehicles.value.filter(v => v.estadoOperativo === 'Disponible').length
+        vehicles.value.filter(v => v.estadoOperativo === 'Disponible' && v.estadoAdministrativo !== 'Vendido').length
     )
     const inRouteVehicles = computed(() =>
-        vehicles.value.filter(v => v.estadoOperativo === 'En ruta').length
+        vehicles.value.filter(v => v.estadoOperativo === 'En ruta' && v.estadoAdministrativo !== 'Vendido').length
     )
     const inMaintenanceVehicles = computed(() =>
-        vehicles.value.filter(v => v.estadoOperativo === 'En mantenimiento').length
+        vehicles.value.filter(v => v.estadoOperativo === 'En mantenimiento' && v.estadoAdministrativo !== 'Vendido').length
     )
     const soldVehicles = computed(() =>
         vehicles.value.filter(v => v.estadoAdministrativo === 'Vendido').length
     )
 
-    // ── Validaciones ─────────────────────────────────────────
+    // ── CRUD & API Actions ──────────────────────────────────
+    // ── Acciones reales de API ──────────────────────────────
+    async function loadVehicles() {
+        isLoading.value = true
+        try {
+            const response = await api.get<any[]>('/vehicles')
+            const backendVehicles = response.data
 
-    /** REQ-06: VIN único */
+            const loaded = await Promise.all(backendVehicles.map(async (v) => {
+                let docs: VehicleDocument[] = []
+                try {
+                    const docsRes = await api.get<any[]>(`/vehicles/${v.id}/documents`)
+                    docs = docsRes.data.map((doc: any) => ({
+                        id: doc.id,
+                        vehiculoId: doc.vehicleId,
+                        tipo: doc.documentType === 'SOAT' ? 'SOAT' : 'TECNOMECANICA',
+                        fechaExpedicion: parseBackendDate(doc.issueDate),
+                        fechaVencimiento: parseBackendDate(doc.expirationDate),
+                        estadoLegal: mapLegalStatus(doc.legalStatus)
+                    }))
+                } catch (e) {
+                    console.error(`Error loading documents for vehicle ${v.plate}:`, e)
+                }
+
+                return {
+                    id: v.id,
+                    vin: v.vin,
+                    placa: v.plate,
+                    marca: v.brand,
+                    modelo: v.line,
+                    anio: v.modelYear,
+                    tipo: mapVehicleType(v.vehicleClass),
+                    estadoOperativo: mapOperationalStatus(v.operationalStatus),
+                    estadoAdministrativo: mapAdministrativeStatus(v.administrativeStatus),
+                    kilometraje: v.currentKm,
+                    conductorAsignadoId: null, // hydrated by assignments or by app setup
+                    conductorAsignadoNombre: null,
+                    documentos: docs,
+                    creadoEn: v.createdAt,
+                    actualizadoEn: v.updatedAt
+                } as Vehicle
+            }))
+
+            vehicles.value = loaded
+        } catch (error) {
+            console.error('Error loading vehicles from backend:', error)
+        } finally {
+            isLoading.value = false
+        }
+    }
+
     function isVinUnique(vin: string, excludeId?: string): boolean {
         return !vehicles.value.some(
             v => v.vin.toUpperCase() === vin.toUpperCase() && v.id !== excludeId
         )
     }
 
-    /** REQ-06: Placa única */
     function isPlacaUnique(placa: string, excludeId?: string): boolean {
         return !vehicles.value.some(
             v => v.placa.toUpperCase() === placa.toUpperCase() && v.id !== excludeId
         )
     }
 
-    // ── CRUD ──────────────────────────────────────────────────
-
-    /**
-     * REQ-05, REQ-06, REQ-07, REQ-08
-     * Crea un vehículo nuevo con estado operativo "Disponible" y
-     * registra sus documentos SOAT y Tecnomecánica.
-     */
-    function createVehicle(
+    async function createVehicle(
         data: VehicleFormData,
         usuarioResponsable: string
-    ): { ok: boolean; error?: string } {
-        // REQ-06
-        if (!isVinUnique(data.vin)) {
-            return { ok: false, error: 'El VIN ya existe en el sistema.' }
-        }
-        if (!isPlacaUnique(data.placa)) {
-            return { ok: false, error: 'La placa ya existe en el sistema.' }
-        }
-        // REQ-07
-        if (data.kilometraje < 0) {
-            return { ok: false, error: 'El kilometraje debe ser un valor positivo.' }
-        }
+    ): Promise<{ ok: boolean; error?: string }> {
+        try {
+            // 1. Crear vehículo
+            const vehicleRes = await api.post<{ id: string }>('/vehicles', {
+                plate: data.placa,
+                vin: data.vin,
+                brand: data.marca,
+                line: data.modelo,
+                modelYear: data.anio,
+                displacementCc: 1600,
+                color: 'Blanco',
+                service: 'PARTICULAR',
+                vehicleClass: mapFrontendTypeToBackendClass(data.tipo),
+                bodyType: mapVehicleTypeToBodyType(data.tipo),
+                fuelType: 'GASOLINA',
+                engineNumber: `ENG-${Date.now()}`,
+                initialKm: data.kilometraje,
+                currentKm: data.kilometraje
+            })
 
-        const id = generateId()
-        const now = isoNow()
+            const vehicleId = vehicleRes.data.id
 
-        const documentos: VehicleDocument[] = [
-            {
-                id: generateDocId(),
-                vehiculoId: id,
-                tipo: 'SOAT',
-                fechaExpedicion: data.soat.fechaExpedicion,
-                fechaVencimiento: data.soat.fechaVencimiento,
-                estadoLegal: calcDocumentLegalStatus(data.soat.fechaVencimiento),
-            },
-            {
-                id: generateDocId(),
-                vehiculoId: id,
-                tipo: 'TECNOMECANICA',
-                fechaExpedicion: data.tecnomecanica.fechaExpedicion,
-                fechaVencimiento: data.tecnomecanica.fechaVencimiento,
-                estadoLegal: calcDocumentLegalStatus(data.tecnomecanica.fechaVencimiento),
-            },
-        ]
+            // 2. Agregar SOAT
+            await api.post(`/vehicles/${vehicleId}/documents`, {
+                documentType: 'SOAT',
+                documentNumber: `SOAT${Date.now()}`,
+                issuedBy: 'Seguros del Estado',
+                issueDate: data.soat.fechaExpedicion,
+                expirationDate: data.soat.fechaVencimiento
+            })
 
-        const newVehicle: Vehicle = {
-            id,
-            vin: data.vin,
-            placa: data.placa,
-            marca: data.marca,
-            modelo: data.modelo,
-            anio: data.anio,
-            tipo: data.tipo,
-            estadoOperativo: 'Disponible',      // REQ-08
-            estadoAdministrativo: 'Activo',
-            kilometraje: data.kilometraje,
-            conductorAsignadoId: null,
-            conductorAsignadoNombre: null,
-            documentos,
-            creadoEn: now,
-            actualizadoEn: now,
+            // 3. Agregar Tecnomecánica
+            await api.post(`/vehicles/${vehicleId}/documents`, {
+                documentType: 'TECNO',
+                documentNumber: `${Date.now()}`.substring(0, 12),
+                issuedBy: 'CDA Autorizado',
+                issueDate: data.tecnomecanica.fechaExpedicion,
+                expirationDate: data.tecnomecanica.fechaVencimiento
+            })
+
+            await loadVehicles()
+
+            audit.log({
+                usuario: usuarioResponsable,
+                accion: 'CREAR_VEHICULO',
+                entidad: `Vehículo ${data.placa}`,
+                detalle: `VIN: ${data.vin}`,
+            })
+
+            return { ok: true }
+        } catch (error: any) {
+            console.error('Error creating vehicle:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { ok: false, error: msg }
         }
-
-        vehicles.value.push(newVehicle)
-        audit.log({
-            usuario: usuarioResponsable,
-            accion: 'CREAR_VEHICULO',
-            entidad: `Vehículo ${data.placa}`,
-            detalle: `VIN: ${data.vin}`,
-        })
-        return { ok: true }
     }
 
-    /**
-     * REQ-09, REQ-10
-     * Edita la información descriptiva y documentos legales del vehículo.
-     * Placa y VIN son inmutables.
-     */
-    function updateVehicle(
+    async function updateVehicle(
         id: string,
         data: VehicleEditFormData,
         usuarioResponsable: string
-    ): { ok: boolean; error?: string } {
-        const vehicle = vehicles.value.find(v => v.id === id)
-        if (!vehicle) return { ok: false, error: 'Vehículo no encontrado.' }
-
-        // REQ-07
-        if (data.kilometraje < 0) {
-            return { ok: false, error: 'El kilometraje debe ser un valor positivo.' }
-        }
-
-        vehicle.marca = data.marca
-        vehicle.modelo = data.modelo
-        vehicle.anio = data.anio
-        vehicle.tipo = data.tipo
-        vehicle.kilometraje = data.kilometraje
-        vehicle.estadoAdministrativo = data.estadoAdministrativo
-        vehicle.actualizadoEn = isoNow()
-
-        // Actualiza documentos
-        updateDocument(vehicle, 'SOAT', data.soat)
-        updateDocument(vehicle, 'TECNOMECANICA', data.tecnomecanica)
-
-        audit.log({
-            usuario: usuarioResponsable,
-            accion: 'EDITAR_VEHICULO',
-            entidad: `Vehículo ${vehicle.placa}`,
-            detalle: 'Datos actualizados',
-        })
-        return { ok: true }
-    }
-
-    /** Actualiza o crea un documento de un tipo específico en el vehículo. */
-    function updateDocument(
-        vehicle: Vehicle,
-        tipo: VehicleDocumentType,
-        docData: { fechaExpedicion: string; fechaVencimiento: string }
-    ) {
-        const existing = vehicle.documentos.find(d => d.tipo === tipo)
-        if (existing) {
-            existing.fechaExpedicion = docData.fechaExpedicion
-            existing.fechaVencimiento = docData.fechaVencimiento
-            existing.estadoLegal = calcDocumentLegalStatus(docData.fechaVencimiento)
-        } else {
-            vehicle.documentos.push({
-                id: generateDocId(),
-                vehiculoId: vehicle.id,
-                tipo,
-                fechaExpedicion: docData.fechaExpedicion,
-                fechaVencimiento: docData.fechaVencimiento,
-                estadoLegal: calcDocumentLegalStatus(docData.fechaVencimiento),
+    ): Promise<{ ok: boolean; error?: string }> {
+        try {
+            // 1. Update basic fields (currentKm)
+            await api.put(`/vehicles/${id}/update`, {
+                displacementCc: 1600,
+                color: 'Blanco',
+                service: 'PARTICULAR',
+                bodyType: mapVehicleTypeToBodyType(data.tipo),
+                fuelType: 'GASOLINA',
+                engineNumber: `ENG-${Date.now()}`,
+                currentKm: data.kilometraje
             })
+
+            const localVehicle = vehicles.value.find(v => v.id === id)
+            if (localVehicle) {
+                const soatDoc = localVehicle.documentos.find(d => d.tipo === 'SOAT')
+                if (soatDoc) {
+                    await api.patch(`/vehicles/${id}/document/${soatDoc.id}/renew`, {
+                        issuedBy: 'Seguros del Estado',
+                        issueDate: data.soat.fechaExpedicion,
+                        expirationDate: data.soat.fechaVencimiento
+                    })
+                }
+                const tecDoc = localVehicle.documentos.find(d => d.tipo === 'TECNOMECANICA')
+                if (tecDoc) {
+                    await api.patch(`/vehicles/${id}/document/${tecDoc.id}/renew`, {
+                        issuedBy: 'CDA Autorizado',
+                        issueDate: data.tecnomecanica.fechaExpedicion,
+                        expirationDate: data.tecnomecanica.fechaVencimiento
+                    })
+                }
+            }
+
+            if (localVehicle && localVehicle.estadoAdministrativo !== data.estadoAdministrativo) {
+                await changeAdministrativeStatus(id, data.estadoAdministrativo, usuarioResponsable, false, false)
+            }
+
+            await loadVehicles()
+
+            audit.log({
+                usuario: usuarioResponsable,
+                accion: 'EDITAR_VEHICULO',
+                entidad: `Vehículo ID: ${id}`,
+                detalle: 'Datos y documentos actualizados',
+            })
+            return { ok: true }
+        } catch (error: any) {
+            console.error('Error updating vehicle:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { ok: false, error: msg }
         }
     }
 
-    /**
-     * REQ-11: Bloquea cambio de estado si hay asignación o mantenimiento abierto.
-     * REQ-14: Permite marcar como "Vendido" (inactivación lógica).
-     * REQ-15: No elimina físicamente el registro.
-     */
-    function changeAdministrativeStatus(
+    async function changeAdministrativeStatus(
         id: string,
         newStatus: VehicleAdministrativeStatus,
         usuarioResponsable: string,
         hasOpenAssignment: boolean,
         hasOpenMaintenance: boolean
-    ): { ok: boolean; error?: string } {
-        // REQ-11
+    ): Promise<{ ok: boolean; error?: string }> {
         if (hasOpenAssignment) {
             return { ok: false, error: 'El vehículo tiene una asignación activa. Ciérrela primero.' }
         }
@@ -316,40 +339,41 @@ export const useVehiclesStore = defineStore('vehicles', () => {
             return { ok: false, error: 'El vehículo tiene un mantenimiento abierto. Ciérrelo primero.' }
         }
 
-        const vehicle = vehicles.value.find(v => v.id === id)
-        if (!vehicle) return { ok: false, error: 'Vehículo no encontrado.' }
+        try {
+            if (newStatus === 'Vendido') {
+                await api.patch(`/vehicles/${id}/sell`)
+            } else if (newStatus === 'Inactivo') {
+                await api.patch(`/vehicles/${id}/suspend`, {
+                    suspensionReason: 'Suspendido por el administrador'
+                })
+            } else if (newStatus === 'Activo') {
+                await api.patch(`/vehicles/${id}/activate`)
+            }
 
-        vehicle.estadoAdministrativo = newStatus
-        vehicle.actualizadoEn = isoNow()
+            await loadVehicles()
 
-        if (newStatus === 'Vendido') {
             audit.log({
                 usuario: usuarioResponsable,
-                accion: 'INACTIVAR_VEHICULO',
-                entidad: `Vehículo ${vehicle.placa}`,
-                detalle: 'Marcado como Vendido',
+                accion: newStatus === 'Vendido' ? 'INACTIVAR_VEHICULO' : 'EDITAR_VEHICULO',
+                entidad: `Vehículo ID: ${id}`,
+                detalle: `Estado administrativo cambiado a: ${newStatus}`,
             })
-        } else {
-            audit.log({
-                usuario: usuarioResponsable,
-                accion: 'EDITAR_VEHICULO',
-                entidad: `Vehículo ${vehicle.placa}`,
-                detalle: `Estado administrativo: ${newStatus}`,
-            })
+
+            return { ok: true }
+        } catch (error: any) {
+            console.error('Error changing administrative status:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { ok: false, error: msg }
         }
-        return { ok: true }
     }
 
-    /** Actualiza el estado operativo (usado por asignaciones y mantenimiento). */
     function setOperationalStatus(id: string, status: VehicleOperationalStatus) {
         const vehicle = vehicles.value.find(v => v.id === id)
         if (vehicle) {
             vehicle.estadoOperativo = status
-            vehicle.actualizadoEn = isoNow()
         }
     }
 
-    /** Vincula o desvincula un conductor al vehículo. */
     function setAssignedDriver(
         vehiculoId: string,
         conductorId: string | null,
@@ -359,20 +383,16 @@ export const useVehiclesStore = defineStore('vehicles', () => {
         if (vehicle) {
             vehicle.conductorAsignadoId = conductorId
             vehicle.conductorAsignadoNombre = conductorNombre
-            vehicle.actualizadoEn = isoNow()
         }
     }
 
-    /** Actualiza el kilometraje (al cerrar asignación o mantenimiento). */
     function updateKilometraje(vehiculoId: string, km: number) {
         const vehicle = vehicles.value.find(v => v.id === vehiculoId)
         if (vehicle && km > vehicle.kilometraje) {
             vehicle.kilometraje = km
-            vehicle.actualizadoEn = isoNow()
         }
     }
 
-    /** Recalcula el estadoLegal de todos los documentos (útil al iniciar la app). */
     function refreshDocumentStatuses() {
         vehicles.value.forEach(vehicle => {
             vehicle.documentos.forEach(doc => {
@@ -381,7 +401,6 @@ export const useVehiclesStore = defineStore('vehicles', () => {
         })
     }
 
-    // ── Búsqueda (REQ-13) ────────────────────────────────────
     function searchVehicles(query: string): Vehicle[] {
         const q = query.trim().toUpperCase()
         if (!q) return activeVehicles.value
@@ -400,6 +419,8 @@ export const useVehiclesStore = defineStore('vehicles', () => {
         inRouteVehicles,
         inMaintenanceVehicles,
         soldVehicles,
+        isLoading,
+        loadVehicles,
         isVinUnique,
         isPlacaUnique,
         createVehicle,

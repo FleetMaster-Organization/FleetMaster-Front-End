@@ -1,92 +1,123 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useVehiclesStore } from '@/stores/vehicles'
+import { useDriversStore } from '@/stores/drivers'
+import { useAlertsStore } from '@/stores/alerts'
+import { useAuditStore } from '@/stores/audit'
 import StatCard from '@/components/dashboard/StatCard.vue'
 import VehicleStatBar from '@/components/dashboard/VehicleStatBar.vue'
 import AlertCard from '@/components/dashboard/AlertCard.vue'
 import ActivityList from '@/components/dashboard/ActivityList.vue'
 import type { StatCardData, VehicleStatData, Alert, ActivityItem } from '@/types'
 
-// ─── Stats data ───────────────────────────────────────────────
-const topStats: StatCardData[] = [
-    {
-        label: 'Vehículos Activos',
-        value: 38,
-        icon: 'truck',
-        accent: 'blue',
-        trend: { value: '+3%', positive: true },
-        subtitle: '45 vehículos totales',
-    },
-    {
-        label: 'Conductores Activos',
-        value: 48,
-        icon: 'users',
-        accent: 'green',
-        trend: { value: '+5%', positive: true },
-        subtitle: '52 conductores totales',
-    },
-    {
-        label: 'En Mantenimiento',
-        value: 5,
-        icon: 'wrench',
-        accent: 'amber',
-        subtitle: 'Vehículos en taller',
-    },
-    {
-        label: 'Alertas Pendientes',
-        value: 3,
-        icon: 'alert-triangle',
-        accent: 'red',
-        subtitle: 'Requieren atención',
-    },
-]
+const vehiclesStore = useVehiclesStore()
+const driversStore = useDriversStore()
+const alertsStore = useAlertsStore()
+const auditStore = useAuditStore()
 
-const vehicleStats: VehicleStatData[] = [
-    { label: 'Disponibles', value: 12, icon: 'check-circle', accentColor: '#16a34a' },
-    { label: 'Asignados', value: 26, icon: 'truck', accentColor: '#2563eb' },
-    { label: 'Mantenimiento', value: 5, icon: 'wrench', accentColor: '#d97706' },
-]
+// Helper para iconos de auditoría
+function getActionIcon(action: string): string {
+    const act = action.toUpperCase()
+    if (act.includes('VEHICULO')) return '🚛'
+    if (act.includes('CONDUCTOR')) return '👤'
+    if (act.includes('MANTENIMIENTO')) return '🔧'
+    if (act.includes('ASIGNACION')) return '📋'
+    if (act.includes('ALERTA')) return '⚠️'
+    return '📝'
+}
 
-// ─── Alerts data ──────────────────────────────────────────────
-const alerts: Alert[] = [
-    { id: '1', title: 'SOAT - ABC123', description: 'Diomedes Díaz', daysLeft: 3, severity: 'critical' },
-    { id: '2', title: 'Revisión técnica - XYZ789', description: 'María García', daysLeft: 7, severity: 'warning' },
-    { id: '3', title: 'Seguro vehicular - DEF456', description: 'Carlos López', daysLeft: 12, severity: 'warning' },
-]
+// Helper para tiempo transcurrido
+function formatTimeAgo(isoDate: string): string {
+    const diff = Date.now() - new Date(isoDate).getTime()
+    const diffMins = Math.floor(diff / 60000)
+    if (diffMins < 1) return 'Ahora mismo'
+    if (diffMins < 60) return `Hace ${diffMins} min`
+    const diffHours = Math.floor(diffMins / 60)
+    if (diffHours < 24) return `Hace ${diffHours} h`
+    const diffDays = Math.floor(diffHours / 24)
+    return `Hace ${diffDays} d`
+}
 
-// ─── Activity data ────────────────────────────────────────────
-const activities: ActivityItem[] = [
-    {
-        id: '1',
-        title: 'Vehículo asignado',
-        description: 'ABC123 asignado a Diomedes Díaz',
-        actor: 'Administrador',
-        timeAgo: 'Hace 2 horas',
-        icon: '🚛',
-    },
-    {
-        id: '2',
-        title: 'Mantenimiento completado',
-        description: 'Cambio de aceite — Vehículo XYZ789',
-        actor: 'Técnico Juan',
-        timeAgo: 'Hace 4 horas',
-        icon: '🔧',
-    },
-    {
-        id: '3',
-        title: 'Nuevo conductor registrado',
-        description: 'Pedro Martínez — Licencia C2',
-        actor: 'Administrador',
-        timeAgo: 'Hace 6 horas',
-        icon: '👤',
-    },
-    {
-        id: '4',
-        title: 'Alerta generada',
-        description: 'SOAT próximo a vencer — ABC123',
-        actor: 'Sistema',
-        timeAgo: 'Hace 8 horas',
-        icon: '⚠️',
-    },
-]
+// ─── Stats data dinámicos ──────────────────────────────────────
+const topStats = computed<StatCardData[]>(() => {
+    const totalV = vehiclesStore.vehicles.length
+    const activeV = vehiclesStore.vehicles.filter(v => v.estadoAdministrativo === 'Activo').length
+    
+    const totalD = driversStore.drivers.length
+    const activeD = driversStore.drivers.filter(d => d.estadoLaboral === 'ACTIVO').length
+    
+    const maintenanceV = vehiclesStore.vehicles.filter(v => v.estadoOperativo === 'En mantenimiento').length
+    const pendingAlerts = alertsStore.pendientes.length
+
+    return [
+        {
+            label: 'Vehículos Activos',
+            value: activeV,
+            icon: 'truck',
+            accent: 'blue',
+            subtitle: `${totalV} vehículos totales`,
+        },
+        {
+            label: 'Conductores Activos',
+            value: activeD,
+            icon: 'users',
+            accent: 'green',
+            subtitle: `${totalD} conductores totales`,
+        },
+        {
+            label: 'En Mantenimiento',
+            value: maintenanceV,
+            icon: 'wrench',
+            accent: 'amber',
+            subtitle: 'Vehículos en taller',
+        },
+        {
+            label: 'Alertas Pendientes',
+            value: pendingAlerts,
+            icon: 'alert-triangle',
+            accent: 'red',
+            subtitle: 'Requieren atención',
+        },
+    ]
+})
+
+const vehicleStats = computed<VehicleStatData[]>(() => {
+    const available = vehiclesStore.vehicles.filter(v => v.estadoOperativo === 'Disponible').length
+    const assigned = vehiclesStore.vehicles.filter(v => v.estadoOperativo === 'En ruta').length
+    const maintenance = vehiclesStore.vehicles.filter(v => v.estadoOperativo === 'En mantenimiento').length
+
+    return [
+        { label: 'Disponibles', value: available, icon: 'check-circle', accentColor: '#16a34a' },
+        { label: 'Asignados', value: assigned, icon: 'truck', accentColor: '#2563eb' },
+        { label: 'Mantenimiento', value: maintenance, icon: 'wrench', accentColor: '#d97706' },
+    ]
+})
+
+// ─── Alerts data dinámicos ──────────────────────────────────────
+const alerts = computed<Alert[]>(() => {
+    return alertsStore.pendientes.slice(0, 3).map(a => ({
+        id: a.id,
+        title: `${a.tipo} - ${a.entidadNombre}`,
+        description: a.diasRestantes < 0 
+            ? `Venció hace ${Math.abs(a.diasRestantes)} días` 
+            : `Vence en ${a.diasRestantes} días`,
+        daysLeft: a.diasRestantes,
+        severity: a.diasRestantes < 0 ? 'critical' : 'warning',
+    }))
+})
+
+// ─── Activity data dinámicos ────────────────────────────────────
+const activities = computed<ActivityItem[]>(() => {
+    return auditStore.logs.slice(0, 4).map(log => ({
+        id: log.id,
+        title: log.accion.replace(/_/g, ' '),
+        description: log.detalle,
+        actor: log.usuario,
+        timeAgo: formatTimeAgo(log.fecha),
+        icon: getActionIcon(log.accion),
+    }))
+})
+
 </script>
 
 <template>

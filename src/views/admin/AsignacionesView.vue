@@ -178,13 +178,13 @@ function openCreate() {
     showFormModal.value      = true
 }
 
-function submitForm() {
+async function submitForm() {
     formError.value = ''
     if (!form.vehiculoId || !form.conductorId) {
         formError.value = 'Selecciona un vehículo y un conductor.'
         return
     }
-    const result = assignmentsStore.createAssignment({ ...form })
+    const result = await assignmentsStore.createAssignment({ ...form })
     if (result.success) {
         showFormModal.value = false
     } else {
@@ -214,14 +214,14 @@ function openClose(a: Assignment) {
     showCloseModal.value = true
 }
 
-function submitClose() {
+async function submitClose() {
     closeError.value = ''
     if (!closeForm.fechaFin || closeForm.kilometrajeFin === null) {
         closeError.value = 'Completa la fecha y el kilometraje final.'
         return
     }
     if (!closingTarget.value) return
-    const result = assignmentsStore.closeAssignment(closingTarget.value.id, { ...closeForm })
+    const result = await assignmentsStore.closeAssignment(closingTarget.value.id, { ...closeForm })
     if (result.success) {
         showCloseModal.value = false
         closingTarget.value  = null

@@ -85,11 +85,11 @@ function openCloseModal(row: Assignment) {
     showCloseModal.value = true
 }
 
-function submitClose() {
+async function submitClose() {
     if (!closingAssign.value) return
     closeError.value = ''
 
-    const result = assignmentsStore.closeAssignment(closingAssign.value.id, {
+    const result = await assignmentsStore.closeAssignment(closingAssign.value.id, {
         fechaFin:      closeForm.fechaFin,
         kilometrajeFin: Number(closeForm.kilometrajeFin),
     })
