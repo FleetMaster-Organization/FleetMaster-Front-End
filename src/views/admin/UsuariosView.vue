@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useUsersStore } from '@/stores/users'
 import DataTable   from '@/components/ui/DataTable.vue'
 import BaseModal   from '@/components/ui/BaseModal.vue'
@@ -8,6 +8,10 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import type { AppUser, UserFormData, UserRole, UserStatus } from '@/types'
 
 const usersStore = useUsersStore()
+
+onMounted(async () => {
+    await usersStore.loadUsers()
+})
 
 // ── Filtros ──────────────────────────────────────────────────
 const search      = ref('')
@@ -99,7 +103,7 @@ function openEdit(u: AppUser) {
     showFormModal.value = true
 }
 
-function submitForm() {
+async function submitForm() {
     formError.value = ''
     if (!form.nombreCompleto || !form.email) {
         formError.value = 'Nombre y email son obligatorios.'
@@ -112,9 +116,9 @@ function submitForm() {
 
     let result: { success: boolean; error?: string }
     if (editingUser.value) {
-        result = usersStore.updateUser(editingUser.value.id, { ...form })
+        result = await usersStore.updateUser(editingUser.value.id, { ...form })
     } else {
-        result = usersStore.createUser({ ...form })
+        result = await usersStore.createUser({ ...form })
     }
 
     if (result.success) {
@@ -137,9 +141,9 @@ function openConfirm(u: AppUser, accion: 'activar' | 'desactivar') {
     showConfirmModal.value = true
 }
 
-function doConfirm() {
+async function doConfirm() {
     if (!confirmTarget.value) return
-    const result = usersStore.toggleStatus(confirmTarget.value.id, confirmAccion.value)
+    const result = await usersStore.toggleStatus(confirmTarget.value.id, confirmAccion.value)
     if (result.success) {
         showConfirmModal.value = false
     } else {
