@@ -15,9 +15,9 @@ MaintenanceType,
 } from '@/types'
 
 type Column = {
-  key: string
-  label: string
-  align?: 'left' | 'center' | 'right'
+    key: string
+    label: string
+    align?: 'left' | 'center' | 'right'
 }
 
 // ── Stores ────────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ const EMPTY_OPEN_FORM = (): MaintenanceFormData => ({
 vehiculoId:  '',
 tipo:        'Preventivo',
 descripcion: '',
-fechaIngreso: new Date().toISOString().split('T')[0],
+fechaIngreso: todayStr(),
 costo:       0,
 tecnico:     '',
 })
@@ -124,7 +124,10 @@ vehiclesStore.vehicles.filter(v =>
 ),
 )
 
-const today = computed(() => new Date().toISOString().split('T')[0])
+const todayStr = (): string =>
+    new Date().toISOString().split('T')[0] as string
+
+const today = todayStr()
 
 function openCreateModal() {
 Object.assign(openForm, EMPTY_OPEN_FORM())
@@ -132,19 +135,19 @@ openError.value = ''
 showOpenModal.value = true
 }
 
-function submitOpen() {
+async function submitOpen() {
 openError.value = ''
 
 if (!openForm.vehiculoId)  { openError.value = 'Selecciona un vehículo.'; return }
 if (!openForm.descripcion.trim()) { openError.value = 'La descripción es obligatoria.'; return }
 if (!openForm.tecnico.trim())     { openError.value = 'El técnico es obligatorio.'; return }
 if (openForm.costo < 0)           { openError.value = 'El costo no puede ser negativo.'; return }
-if (openForm.fechaIngreso > today.value) {
+if (openForm.fechaIngreso > today) {
     openError.value = 'La fecha de ingreso no puede ser futura.'
     return
 }
 
-const result = maintenanceStore.openMaintenance({ ...openForm })
+const result = await maintenanceStore.openMaintenance({ ...openForm })
 if (result.success) {
     showOpenModal.value = false
 } else {
@@ -158,7 +161,7 @@ const closingRecord   = ref<MaintenanceRecord | null>(null)
 const closeError      = ref('')
 
 const EMPTY_CLOSE_FORM = (): MaintenanceCloseData => ({
-fechaSalida:          new Date().toISOString().split('T')[0],
+fechaSalida:          todayStr(),
 kilometrajeSalida:    0,
 comentariosCierre:    '',
 proximoMantenimiento: '',
@@ -173,7 +176,7 @@ closeError.value = ''
 showCloseModal.value = true
 }
 
-function submitClose() {
+async function submitClose() {
 closeError.value = ''
 if (!closingRecord.value) return
 
@@ -185,7 +188,7 @@ if (closeForm.kilometrajeSalida < closingRecord.value.kilometrajeIngreso) {
     closeError.value = `El kilometraje de salida debe ser ≥ ${closingRecord.value.kilometrajeIngreso} km.`
     return
 }
-if (closeForm.proximoMantenimiento && closeForm.proximoMantenimiento < today.value) {
+if (closeForm.proximoMantenimiento && closeForm.proximoMantenimiento < today) {
     closeError.value = 'La fecha de próximo mantenimiento no puede ser pasada.'
     return
 }
@@ -197,7 +200,10 @@ const payload: MaintenanceCloseData = {
     proximoMantenimiento: closeForm.proximoMantenimiento || undefined,
 }
 
-const result = maintenanceStore.closeMaintenance(closingRecord.value.id, payload)
+const result = await maintenanceStore.closeMaintenance(
+    closingRecord.value.id,
+    payload
+)
 if (result.success) {
     showCloseModal.value = false
     closingRecord.value  = null
@@ -217,7 +223,7 @@ showDetailModal.value = true
 </script>
 
 <template>
-<div class="p-6 space-y-6">
+    <div class="p-6 space-y-6"></div>
 
     <!-- ── Header ── -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
