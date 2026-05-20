@@ -28,14 +28,14 @@ const routeTitles: Record<string, string> = {
     'admin-usuarios': 'Usuarios',
 
     'coordinator-dashboard': 'Dashboard',
-    'coordinator-vehiculos': 'Vehículos',
-    'coordinator-conductores': 'Conductores',
-    'coordinator-asignaciones': 'Asignaciones',
-    'coordinator-alertas': 'Alertas',
+    'coordinator-vehicles': 'Vehículos',
+    'coordinator-drivers': 'Conductores',
+    'coordinator-assignments': 'Asignaciones',
+    'coordinator-alerts': 'Alertas',
 
     'mechanic-dashboard': 'Dashboard',
-    'mechanic-mantenimiento': 'Mantenimiento',
-    'mechanic-historial': 'Historial',
+    'mechanic-maintenance': 'Mantenimiento',
+    'mechanic-history': 'Historial',
 }
 
 const pageTitle = computed(() =>

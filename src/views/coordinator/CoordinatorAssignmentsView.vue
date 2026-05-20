@@ -11,6 +11,8 @@ import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
 import { useAuthStore } from '@/stores/auth'
 
+import type { DataTableCellSlotProps } from '@/types/data-table'
+
 import type {
     Assignment,
     AssignmentFormData,
@@ -55,9 +57,9 @@ const form = reactive<AssignmentFormData>({
 })
 
 // ─── Close modal ─────────────────────────────────────────────
-const showCloseModal  = ref(false)
+const showCloseModal    = ref(false)
 const closingAssignment = ref<Assignment | null>(null)
-const closeError      = ref('')
+const closeError        = ref('')
 
 const closeForm = reactive<AssignmentCloseData>({
     fechaFin:       '',
@@ -65,16 +67,14 @@ const closeForm = reactive<AssignmentCloseData>({
 })
 
 // ─── Computed — stats ────────────────────────────────────────
-const totalAssignments     = computed(() => assignmentsStore.historial.length)
+const totalAssignments     = computed(() => assignmentsStore.assignments.length)
 const activeAssignments    = computed(() => assignmentsStore.activas.length)
-const completedAssignments = computed(() =>
-    assignmentsStore.historial.filter(a => a.estado === 'Finalizada').length
-)
+const completedAssignments = computed(() => assignmentsStore.historial.length)
 
 // ─── Computed — available for create ─────────────────────────
 const availableVehicles = computed(() =>
     vehiclesStore.vehicles.filter(v =>
-        v.estadoOperativo    === 'Disponible' &&
+        v.estadoOperativo === 'Disponible' &&
         v.estadoAdministrativo === 'Activo'
     )
 )
@@ -88,12 +88,13 @@ const availableDrivers = computed(() =>
 )
 
 // ─── Computed — filtered + paginated ─────────────────────────
-const filteredAssignments = computed(() => {
-    let result = assignmentsStore.historial
-
-    if (filterStatus.value !== 'Todas') {
-        result = result.filter(a => a.estado === filterStatus.value)
-    }
+const filteredAssignments = computed<Assignment[]>(() => {
+    let result =
+        filterStatus.value === 'Activa'
+            ? [...assignmentsStore.activas]
+            : filterStatus.value === 'Finalizada'
+              ? [...assignmentsStore.historial]
+              : [...assignmentsStore.assignments]
 
     if (search.value.trim()) {
         const query = search.value.toLowerCase()
@@ -115,17 +116,21 @@ const paginatedAssignments = computed(() => {
     return filteredAssignments.value.slice(start, start + PAGE_SIZE)
 })
 
+/** Filas tipadas para DataTable (T extends Record<string, unknown>) */
+const tableRows = computed(
+    () => paginatedAssignments.value as unknown as Record<string, unknown>[]
+)
+
 // ─── Actions — create ────────────────────────────────────────
 function openCreateModal() {
-    form.vehiculoId   = ''
-    form.conductorId  = ''
-    // usuarioResponsable refleja siempre el usuario activo
+    form.vehiculoId         = ''
+    form.conductorId        = ''
     form.usuarioResponsable = authStore.user?.name ?? 'Coordinador'
-    formError.value   = ''
-    showCreateModal.value = true
+    formError.value         = ''
+    showCreateModal.value   = true
 }
 
-function createAssignment() {
+async function createAssignment() {
     formError.value = ''
 
     if (!form.vehiculoId || !form.conductorId) {
@@ -133,7 +138,7 @@ function createAssignment() {
         return
     }
 
-    const result = assignmentsStore.createAssignment({ ...form })
+    const result = await assignmentsStore.createAssignment({ ...form })
 
     if (result.success) {
         showCreateModal.value = false
@@ -145,18 +150,18 @@ function createAssignment() {
 
 // ─── Actions — close ─────────────────────────────────────────
 function openCloseModal(assignment: Assignment) {
-    closingAssignment.value   = assignment
-    closeForm.fechaFin        = new Date().toISOString().slice(0, 10)
-    closeForm.kilometrajeFin  = assignment.kilometrajeInicio
-    closeError.value          = ''
-    showCloseModal.value      = true
+    closingAssignment.value  = assignment
+    closeForm.fechaFin       = new Date().toISOString().slice(0, 10)
+    closeForm.kilometrajeFin = assignment.kilometrajeInicio
+    closeError.value         = ''
+    showCloseModal.value     = true
 }
 
-function closeAssignment() {
+async function closeAssignment() {
     if (!closingAssignment.value) return
     closeError.value = ''
 
-    const result = assignmentsStore.closeAssignment(
+    const result = await assignmentsStore.closeAssignment(
         closingAssignment.value.id,
         { ...closeForm }
     )
@@ -171,6 +176,10 @@ function closeAssignment() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
+function asAssignment(row: DataTableCellSlotProps['row']): Assignment {
+    return row as unknown as Assignment
+}
+
 function formatDate(date: string): string {
     return new Intl.DateTimeFormat('es-CO', {
         day: '2-digit', month: '2-digit', year: 'numeric',
@@ -201,8 +210,9 @@ function getDriverLabel(driver: Driver): string {
             </div>
 
             <button
-                @click="openCreateModal"
+                type="button"
                 class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-5 py-3 text-sm font-semibold transition"
+                @click="openCreateModal"
             >
                 Nueva asignación
             </button>
@@ -251,13 +261,14 @@ function getDriverLabel(driver: Driver): string {
                         { value: 'Finalizada', label: 'Finalizadas', count: completedAssignments },
                     ]"
                     :key="tab.value"
-                    @click="filterStatus = tab.value as typeof filterStatus"
+                    type="button"
+                    class="px-4 py-2 rounded-lg text-sm font-medium transition"
                     :class="[
-                        'px-4 py-2 rounded-lg text-sm font-medium transition',
                         filterStatus === tab.value
                             ? 'bg-white shadow-sm text-slate-800'
                             : 'text-slate-500 hover:text-slate-700'
                     ]"
+                    @click="filterStatus = tab.value as typeof filterStatus"
                 >
                     {{ tab.label }}
                     <span class="ml-1 text-xs">{{ tab.count }}</span>
@@ -278,67 +289,62 @@ function getDriverLabel(driver: Driver): string {
 
             <DataTable
                 :columns="columns"
-                :rows="paginatedAssignments"
+                :rows="tableRows"
                 row-key="id"
                 empty-message="No hay asignaciones registradas."
             >
 
-                <!-- Vehículo -->
-                <template #cell-vehiculo="{ row }">
+                <template #cell-vehiculo="{ row }: DataTableCellSlotProps">
                     <div class="space-y-1">
                         <p class="font-mono font-bold text-xs tracking-widest text-slate-800">
-                            {{ (row as Assignment).vehiculoPlaca }}
+                            {{ asAssignment(row).vehiculoPlaca }}
                         </p>
                         <p class="text-xs text-slate-400">
-                            {{ (row as Assignment).vehiculoMarca }}
-                            {{ (row as Assignment).vehiculoModelo }}
+                            {{ asAssignment(row).vehiculoMarca }}
+                            {{ asAssignment(row).vehiculoModelo }}
                         </p>
                     </div>
                 </template>
 
-                <!-- Conductor -->
-                <template #cell-conductor="{ row }">
+                <template #cell-conductor="{ row }: DataTableCellSlotProps">
                     <div class="space-y-1">
                         <p class="font-semibold text-slate-800">
-                            {{ (row as Assignment).conductorNombre }}
+                            {{ asAssignment(row).conductorNombre }}
                         </p>
                         <p class="font-mono text-xs text-slate-400">
-                            {{ (row as Assignment).conductorCedula }}
+                            {{ asAssignment(row).conductorCedula }}
                         </p>
                     </div>
                 </template>
 
-                <!-- Fecha inicio -->
-                <template #cell-fechaInicio="{ row }">
+                <template #cell-fechaInicio="{ value }: DataTableCellSlotProps">
                     <span class="font-mono text-xs text-slate-700">
-                        {{ formatDate((row as Assignment).fechaInicio) }}
+                        {{ formatDate(value as string) }}
                     </span>
                 </template>
 
-                <!-- Estado -->
-                <template #cell-estado="{ row }">
-                    <StatusBadge :status="(row as Assignment).estado" />
+                <template #cell-estado="{ value }: DataTableCellSlotProps">
+                    <StatusBadge :status="value as string" />
                 </template>
 
-                <!-- Acciones -->
-                <template #cell-acciones="{ row }">
+                <template #cell-acciones="{ row }: DataTableCellSlotProps">
                     <div class="flex justify-end">
                         <button
-                            v-if="(row as Assignment).estado === 'Activa'"
-                            @click="openCloseModal(row as Assignment)"
+                            v-if="asAssignment(row).estado === 'Activa'"
+                            type="button"
                             class="px-3 py-1 text-xs rounded-lg border border-slate-200
                                 text-slate-600 hover:bg-slate-50 transition"
+                            @click="openCloseModal(asAssignment(row))"
                         >
                             Cerrar
                         </button>
                     </div>
                 </template>
 
-                <!-- Pagination -->
                 <template #pagination>
                     <div
                         v-if="totalPages > 1"
-                        class="flex items-center justify-between px-4 py-3 border-t border-slate-200"
+                        class="flex items-center justify-between"
                     >
                         <p class="text-xs text-slate-400">
                             Página {{ currentPage }} de {{ totalPages }}
@@ -347,21 +353,23 @@ function getDriverLabel(driver: Driver): string {
 
                         <div class="flex gap-2">
                             <button
-                                @click="currentPage--"
-                                :disabled="currentPage === 1"
+                                type="button"
                                 class="px-3 py-1 text-xs rounded-lg border border-slate-200
                                     text-slate-600 hover:bg-slate-50 disabled:opacity-40
                                     disabled:cursor-not-allowed transition"
+                                :disabled="currentPage === 1"
+                                @click="currentPage--"
                             >
                                 Anterior
                             </button>
 
                             <button
-                                @click="currentPage++"
-                                :disabled="currentPage === totalPages"
+                                type="button"
                                 class="px-3 py-1 text-xs rounded-lg border border-slate-200
                                     text-slate-600 hover:bg-slate-50 disabled:opacity-40
                                     disabled:cursor-not-allowed transition"
+                                :disabled="currentPage === totalPages"
+                                @click="currentPage++"
                             >
                                 Siguiente
                             </button>
@@ -448,16 +456,18 @@ function getDriverLabel(driver: Driver): string {
             <template #footer>
                 <div class="flex justify-end gap-3">
                     <button
-                        @click="showCreateModal = false"
+                        type="button"
                         class="px-4 py-2 rounded-xl border border-slate-200
                             text-slate-600 hover:bg-slate-50 transition"
+                        @click="showCreateModal = false"
                     >
                         Cancelar
                     </button>
                     <button
-                        @click="createAssignment"
+                        type="button"
                         class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl
                             px-5 py-2 text-sm font-semibold transition"
+                        @click="createAssignment"
                     >
                         Crear asignación
                     </button>
@@ -536,16 +546,18 @@ function getDriverLabel(driver: Driver): string {
             <template #footer>
                 <div class="flex justify-end gap-3">
                     <button
-                        @click="showCloseModal = false"
+                        type="button"
                         class="px-4 py-2 rounded-xl border border-slate-200
                             text-slate-600 hover:bg-slate-50 transition"
+                        @click="showCloseModal = false"
                     >
                         Cancelar
                     </button>
                     <button
-                        @click="closeAssignment"
+                        type="button"
                         class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl
                             px-5 py-2 text-sm font-semibold transition"
+                        @click="closeAssignment"
                     >
                         Cerrar asignación
                     </button>

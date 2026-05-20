@@ -8,6 +8,8 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useAlertsStore } from '@/stores/alerts'
 import { useAuthStore } from '@/stores/auth'
 
+import type { DataTableCellSlotProps } from '@/types/data-table'
+
 import type {
     AlertSeverity,
     AlertStatus,
@@ -77,11 +79,15 @@ const totalPages = computed(() =>
     Math.max(1, Math.ceil(filteredAlerts.value.length / PAGE_SIZE))
 )
 
-// CORRECTO: sin cast — TypeScript infiere T = SystemAlert desde SystemAlert[]
-const paginatedAlerts = computed<SystemAlert[]>(() => {
+const paginatedAlerts = computed(() => {
     const start = (currentPage.value - 1) * PAGE_SIZE
     return filteredAlerts.value.slice(start, start + PAGE_SIZE)
 })
+
+/** Filas tipadas para DataTable (T extends Record<string, unknown>) */
+const tableRows = computed(
+    () => paginatedAlerts.value as unknown as Record<string, unknown>[]
+)
 
 // ─── Actions ───────────────────────────────────────────────────
 function markManaged(alert: SystemAlert) {
@@ -90,6 +96,10 @@ function markManaged(alert: SystemAlert) {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
+function asAlert(row: DataTableCellSlotProps['row']): SystemAlert {
+    return row as unknown as SystemAlert
+}
+
 function formatDate(date: string) {
     return new Intl.DateTimeFormat('es-CO', {
         day: '2-digit', month: '2-digit', year: 'numeric',
@@ -163,76 +173,69 @@ function getDaysText(days: number) {
 
             <DataTable
                 :columns="columns"
-                :rows="paginatedAlerts"
+                :rows="tableRows"
                 row-key="id"
                 empty-message="No se encontraron alertas."
             >
 
-                <!-- Tipo -->
-                <template #cell-tipo="{ row }">
+                <template #cell-tipo="{ row }: DataTableCellSlotProps">
                     <div class="space-y-1">
                         <p class="font-semibold text-slate-800">
-                            {{ row.tipo }}
+                            {{ asAlert(row).tipo }}
                         </p>
                         <p class="text-xs text-slate-400 capitalize">
-                            {{ row.entidadTipo }}
+                            {{ asAlert(row).entidadTipo }}
                         </p>
                     </div>
                 </template>
 
-                <!-- Entidad -->
-                <template #cell-entidadNombre="{ row }">
+                <template #cell-entidadNombre="{ value }: DataTableCellSlotProps">
                     <p class="font-semibold text-slate-800">
-                        {{ row.entidadNombre }}
+                        {{ value as string }}
                     </p>
                 </template>
 
-                <!-- Fecha -->
-                <template #cell-fechaVencimiento="{ row }">
+                <template #cell-fechaVencimiento="{ value }: DataTableCellSlotProps">
                     <span class="font-mono text-xs text-slate-700">
-                        {{ formatDate(row.fechaVencimiento) }}
+                        {{ formatDate(value as string) }}
                     </span>
                 </template>
 
-                <!-- Días -->
-                <template #cell-diasRestantes="{ row }">
+                <template #cell-diasRestantes="{ value }: DataTableCellSlotProps">
                     <div class="text-right">
                         <span
                             class="font-mono text-xs font-semibold"
-                            :class="(row.diasRestantes as number) < 0
+                            :class="(value as number) < 0
                                 ? 'text-red-600'
                                 : 'text-amber-600'"
                         >
-                            {{ getDaysText(row.diasRestantes as number) }}
+                            {{ getDaysText(value as number) }}
                         </span>
                     </div>
                 </template>
 
-                <!-- Severidad -->
-                <template #cell-severidad="{ row }">
-                    <StatusBadge :status="row.severidad as string" />
+                <template #cell-severidad="{ value }: DataTableCellSlotProps">
+                    <StatusBadge :status="value as string" />
                 </template>
 
-                <!-- Estado -->
-                <template #cell-estado="{ row }">
-                    <StatusBadge :status="row.estado as string" />
+                <template #cell-estado="{ value }: DataTableCellSlotProps">
+                    <StatusBadge :status="value as string" />
                 </template>
 
-                <!-- Acciones -->
-                <template #cell-acciones="{ row }">
+                <template #cell-acciones="{ row }: DataTableCellSlotProps">
                     <div class="flex justify-end">
                         <button
-                            v-if="row.estado === 'Pendiente'"
-                            @click="markManaged(row as unknown as SystemAlert)"
+                            v-if="asAlert(row).estado === 'Pendiente'"
+                            type="button"
                             class="px-3 py-1 text-xs rounded-lg border border-slate-200
                                 text-slate-600 hover:bg-slate-50 transition"
+                            @click="markManaged(asAlert(row))"
                         >
                             Gestionar
                         </button>
                     </div>
                 </template>
 
-                <!-- Pagination -->
                 <template #pagination>
                     <div class="flex items-center justify-between">
                         <p class="text-xs text-slate-500">
