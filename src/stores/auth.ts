@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import router from '@/router'
+import { api } from '@/utils/api'
+import { useVehiclesStore } from '@/stores/vehicles'
+import { useDriversStore } from '@/stores/drivers'
+import { useAssignmentsStore } from '@/stores/assignments'
 
 export type UserRole = 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
 
@@ -33,8 +37,6 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
 ]
 
 export const useAuthStore = defineStore('auth', () => {
-    const router = useRouter()
-
     const user  = ref<User | null>(null)
     const token = ref<string | null>(localStorage.getItem('token'))
 
@@ -72,25 +74,22 @@ export const useAuthStore = defineStore('auth', () => {
 
     // ── Acciones ─────────────────────────────────────────────
 
-    /**
-     * Login mock. Para probar distintos roles en desarrollo,
-     * cambia el valor de `role` en mockUser.
-     *
-     * Roles disponibles: 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
-     *
-     * Ejemplo para probar el despachador:
-     *   role: 'dispatcher'
-     */
+    function mapRole(backendRoles: string[]): UserRole {
+        if (backendRoles.includes('ROLE_ADMINISTRADOR')) return 'admin'
+        if (backendRoles.includes('ROLE_COORDINADOR') || backendRoles.includes('ROLE_COORDINADOR_FLOTA')) return 'coordinator'
+        if (backendRoles.includes('ROLE_MECANICO')) return 'mechanic'
+        if (backendRoles.includes('ROLE_DESPACHADOR')) return 'dispatcher'
+        return 'dispatcher'
+    }
+
     function login(credentials: { email: string; password: string }) {
-        // ─── MOCK: reemplazar con llamada real a API ───────────
         const mockUser: User = {
             id:    '1',
             name:  'Ali Baba',
             email: credentials.email,
-            role:  'admin', // cambia aquí para probar otros roles
+            role:  'admin', // 'coordinator' | 'mechanic' | 'dispatcher'
         }
         const mockToken = 'mock-jwt-token'
-        // ──────────────────────────────────────────────────────
 
         user.value  = mockUser
         token.value = mockToken
@@ -98,14 +97,29 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user', JSON.stringify(mockUser))
 
         startInactivityWatcher()
+        router.push(ROLE_REDIRECT[mockUser.role])
     }
 
-    function logout(dueToInactivity = false) {
+    async function logout(dueToInactivity = false) {
+        const rt = localStorage.getItem('refreshToken')
+        if (rt) {
+            try {
+                await api.post('/auth/logout', {}, {
+                    headers: {
+                        'Refresh-Token': rt,
+                    },
+                })
+            } catch (e) {
+                console.error('Logout error on backend:', e)
+            }
+        }
+
         stopInactivityWatcher()
 
         user.value  = null
         token.value = null
         localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
         localStorage.removeItem('user')
 
         if (dueToInactivity) {
@@ -120,6 +134,18 @@ export const useAuthStore = defineStore('auth', () => {
         if (stored && token.value) {
             user.value = JSON.parse(stored)
             startInactivityWatcher()
+
+            // Trigger background loads of other stores on restoreSession
+            try {
+                const vehiclesStore = useVehiclesStore()
+                const driversStore = useDriversStore()
+                const assignmentsStore = useAssignmentsStore()
+                vehiclesStore.loadVehicles()
+                driversStore.loadDrivers()
+                assignmentsStore.loadAssignments()
+            } catch (e) {
+                console.error('Error in background store restore:', e)
+            }
         }
     }
 
