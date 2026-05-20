@@ -87,7 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
             id:    '1',
             name:  'Ali Baba',
             email: credentials.email,
-            role:  'dispatcher', // cambia aquí para probar otros roles
+            role:  'admin', // cambia aquí para probar otros roles
         }
         const mockToken = 'mock-jwt-token'
         // ──────────────────────────────────────────────────────
