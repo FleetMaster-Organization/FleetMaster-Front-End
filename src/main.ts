@@ -15,9 +15,5 @@ app.use(pinia)
 const auth = useAuthStore()
 auth.restoreSession()
 
-if (!auth.isAuthenticated) {
-    auth.login({ email: 'admin@fleetmaster.com', password: '1234' })
-}
-
 app.use(router)
 app.mount('#app')
