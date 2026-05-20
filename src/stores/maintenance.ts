@@ -111,7 +111,7 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
 
         auditStore.log({
             accion: 'ABRIR_MANTENIMIENTO',
-            usuario: 'Admin',
+            usuario: 'ROLE_ADMINISTRADOR',
             entidad: `Vehículo ${vehicle.placa}`,
             detalle: `Mantenimiento ${data.tipo} abierto — ${data.descripcion} | Técnico: ${data.tecnico}`,
         })
@@ -149,7 +149,7 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
 
         auditStore.log({
             accion: 'CERRAR_MANTENIMIENTO',
-            usuario: 'Admin',
+            usuario: 'ROLE_ADMINISTRADOR',
             entidad: `Vehículo ${record.vehiculoPlaca}`,
             detalle: `Mantenimiento cerrado. Km salida: ${data.kilometrajeSalida}${
                 data.comentariosCierre ? ` — ${data.comentariosCierre}` : ''

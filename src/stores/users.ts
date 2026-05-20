@@ -14,42 +14,42 @@ export const useUsersStore = defineStore('users', () => {
     const users = ref<AppUser[]>([
         {
         id: 'u001', nombreCompleto: 'Ali Baba', email: 'admin@logifast.com',
-        passwordHash: fakeHash('admin123'), rol: 'admin',
+        passwordHash: fakeHash('admin123'), rol: 'ROLE_ADMINISTRADOR',
         estado: 'Activo', creadoEn: '2024-01-01T08:00:00Z', actualizadoEn: '2024-01-01T08:00:00Z',
         },
         {
         id: 'u002', nombreCompleto: 'Laura Coordinadora', email: 'laura@logifast.com',
-        passwordHash: fakeHash('coord456'), rol: 'coordinator',
+        passwordHash: fakeHash('coord456'), rol: 'ROLE_COORDINADOR',
         estado: 'Activo', creadoEn: '2024-01-15T09:00:00Z', actualizadoEn: '2024-03-10T10:00:00Z',
         },
         {
         id: 'u003', nombreCompleto: 'Técnico Juan', email: 'juan.tec@logifast.com',
-        passwordHash: fakeHash('mec789'), rol: 'mechanic',
+        passwordHash: fakeHash('mec789'), rol: 'ROLE_MECANICO',
         estado: 'Activo', creadoEn: '2024-02-01T08:00:00Z', actualizadoEn: '2024-02-01T08:00:00Z',
         },
         {
         id: 'u004', nombreCompleto: 'Despachador Carlos', email: 'carlos.desp@logifast.com',
-        passwordHash: fakeHash('desp000'), rol: 'dispatcher',
+        passwordHash: fakeHash('desp000'), rol: 'ROLE_DESPACHADOR',
         estado: 'Activo', creadoEn: '2024-02-10T07:30:00Z', actualizadoEn: '2024-04-01T09:00:00Z',
         },
         {
         id: 'u005', nombreCompleto: 'Técnico Ramírez', email: 'ramirez.tec@logifast.com',
-        passwordHash: fakeHash('mec321'), rol: 'mechanic',
+        passwordHash: fakeHash('mec321'), rol: 'ROLE_MECANICO',
         estado: 'Activo', creadoEn: '2024-03-05T10:00:00Z', actualizadoEn: '2024-03-05T10:00:00Z',
         },
         {
         id: 'u006', nombreCompleto: 'Coordinador1', email: 'coord1@logifast.com',
-        passwordHash: fakeHash('coord111'), rol: 'coordinator',
+        passwordHash: fakeHash('coord111'), rol: 'ROLE_COORDINADOR',
         estado: 'Activo', creadoEn: '2024-03-20T08:00:00Z', actualizadoEn: '2024-03-20T08:00:00Z',
         },
         {
         id: 'u007', nombreCompleto: 'Técnico Gómez', email: 'gomez.tec@logifast.com',
-        passwordHash: fakeHash('mec654'), rol: 'mechanic',
+        passwordHash: fakeHash('mec654'), rol: 'ROLE_MECANICO',
         estado: 'Inactivo', creadoEn: '2024-04-01T09:00:00Z', actualizadoEn: '2024-12-01T11:00:00Z',
         },
         {
         id: 'u008', nombreCompleto: 'Sandra Despachadora', email: 'sandra.desp@logifast.com',
-        passwordHash: fakeHash('desp999'), rol: 'dispatcher',
+        passwordHash: fakeHash('desp999'), rol: 'ROLE_DESPACHADOR',
         estado: 'Activo', creadoEn: '2024-04-15T07:00:00Z', actualizadoEn: '2024-04-15T07:00:00Z',
         },
     ])
@@ -84,7 +84,7 @@ export const useUsersStore = defineStore('users', () => {
         users.value.unshift(newUser)
 
         auditStore.log({
-        usuario: 'Admin',
+        usuario: 'administrador',
         accion: 'CREAR_USUARIO',
         entidad: `Usuario ${data.nombreCompleto}`,
         detalle: `Cuenta creada con rol ${data.rol}`,
@@ -115,7 +115,7 @@ export const useUsersStore = defineStore('users', () => {
         }
 
         auditStore.log({
-        usuario: 'Admin',
+        usuario: 'administrador',
         accion: rolCambiado ? 'CAMBIAR_ROL' : 'EDITAR_USUARIO',
         entidad: `Usuario ${data.nombreCompleto}`,
         detalle: rolCambiado
@@ -135,7 +135,7 @@ export const useUsersStore = defineStore('users', () => {
         users.value[idx] = { ...user, estado: nuevoEstado, actualizadoEn: new Date().toISOString() }
 
         auditStore.log({
-        usuario: 'Admin',
+        usuario: 'administrador',
         accion: accion === 'activar' ? 'ACTIVAR_USUARIO' : 'DESACTIVAR_USUARIO',
         entidad: `Usuario ${user.nombreCompleto}`,
         detalle: `Cuenta ${nuevoEstado === 'Activo' ? 'activada' : 'desactivada'} por administrador`,

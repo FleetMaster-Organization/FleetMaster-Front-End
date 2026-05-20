@@ -67,7 +67,7 @@ function diasClass(dias: number): string {
 }
 
 function markManaged(id: string) {
-    alertsStore.markManaged(id, 'Admin')
+    alertsStore.markManaged(id, 'Administrador')
 }
 </script>
 

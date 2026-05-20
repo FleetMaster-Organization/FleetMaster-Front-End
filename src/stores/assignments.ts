@@ -18,7 +18,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
             conductorId: 'd1', conductorNombre: 'Carlos Pérez', conductorCedula: '1020304050',
             fechaInicio: '2025-04-28T07:00:00Z', fechaFin: null,
             kilometrajeInicio: 28000, kilometrajeFin: null,
-            usuarioResponsable: 'Admin', estado: 'Activa',
+            usuarioResponsable: 'ROLE_ADMINISTRADOR', estado: 'Activa',
         },
         {
             id: 'a002', vehiculoId: 'v_hist_1', vehiculoPlaca: 'DEF-456',
@@ -26,7 +26,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
             conductorId: 'd_hist_1', conductorNombre: 'Pedro Ramírez', conductorCedula: '79856432101',
             fechaInicio: '2025-04-01T07:00:00Z', fechaFin: '2025-04-01T17:30:00Z',
             kilometrajeInicio: 18200, kilometrajeFin: 18900,
-            usuarioResponsable: 'Admin', estado: 'Finalizada',
+            usuarioResponsable: 'ROLE_ADMINISTRADOR', estado: 'Finalizada',
         },
     ])
 

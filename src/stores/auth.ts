@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
-export type UserRole = 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
+export type UserRole = 'ROLE_ADMINISTRADOR' | 'ROLE_COORDINADOR' | 'ROLE_MECANICO' | 'ROLE_DESPACHADOR'
 
 export interface User {
     id: string
@@ -13,10 +13,10 @@ export interface User {
 }
 
 export const ROLE_REDIRECT: Record<UserRole, string> = {
-    admin:       '/admin/dashboard',
-    coordinator: '/coordinator/dashboard',
-    mechanic:    '/mechanic/dashboard',
-    dispatcher:  '/dispatcher/dashboard',
+    'ROLE_ADMINISTRADOR':       '/admin/dashboard',
+    'ROLE_COORDINADOR': '/coordinator/dashboard',
+    'ROLE_MECANICO':    '/mechanic/dashboard',
+    'ROLE_DESPACHADOR':  '/dispatcher/dashboard',
 }
 
 /** Tiempo de inactividad permitido antes del cierre automático de sesión (ms) */
@@ -87,7 +87,7 @@ export const useAuthStore = defineStore('auth', () => {
             id:    '1',
             name:  'Ali Baba',
             email: credentials.email,
-            role:  'dispatcher', // cambia aquí para probar otros roles
+            role:  'ROLE_ADMINISTRADOR', // cambia aquí para probar otros roles
         }
         const mockToken = 'mock-jwt-token'
         // ──────────────────────────────────────────────────────
