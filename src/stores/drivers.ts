@@ -12,6 +12,7 @@ import type {
     LicenseStatusLegal,
 } from '@/types'
 import { useAuditStore } from './audit'
+import { api } from '@/utils/api'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,81 +69,20 @@ export const useDriversStore = defineStore('drivers', () => {
     const audit = useAuditStore()
 
     // ── Estado ───────────────────────────────────────────────
-    const drivers = ref<Driver[]>([
-        // Datos de ejemplo
-        {
-            id: 'd1',
-            nombre: 'Carlos Pérez',
-            cedula: '1020304050',
-            telefono: '3001234567',
-            email: 'cperez@ejemplo.com',
-            estadoLaboral: 'ACTIVO',
-            subestadoLaboral: 'ACTIVO',
-            vehiculoAsignadoId: 'v2',
-            vehiculoAsignadoPlaca: 'XYZ-789',
-            licencias: [
-                {
-                    id: 'lic1',
-                    conductorId: 'd1',
-                    categoria: 'C2',
-                    fechaExpedicion: '2020-03-01',
-                    fechaVencimiento: '2026-05-10',
-                    estadoLegal: calcLicenseStatus('2026-05-10'),
-                },
-                {
-                    id: 'lic2',
-                    conductorId: 'd1',
-                    categoria: 'B1',
-                    fechaExpedicion: '2019-01-15',
-                    fechaVencimiento: '2025-01-15',
-                    estadoLegal: calcLicenseStatus('2025-01-15'),
-                },
-            ],
-            contactosEmergencia: [
-                {
-                    id: 'ec1',
-                    conductorId: 'd1',
-                    nombre: 'María Pérez',
-                    telefono: '3109876543',
-                    relacion: 'Esposa',
-                },
-            ],
-            creadoEn: '2023-05-10T08:00:00Z',
-            actualizadoEn: '2023-05-10T08:00:00Z',
-        },
-        {
-            id: 'd2',
-            nombre: 'Luisa Ramírez',
-            cedula: '1234567890',
-            telefono: '3157654321',
-            email: 'lramirez@ejemplo.com',
-            estadoLaboral: 'INACTIVO',
-            subestadoLaboral: 'VACACIONES',
-            vehiculoAsignadoId: null,
-            vehiculoAsignadoPlaca: null,
-            licencias: [
-                {
-                    id: 'lic3',
-                    conductorId: 'd2',
-                    categoria: 'B1',
-                    fechaExpedicion: '2021-07-20',
-                    fechaVencimiento: '2027-07-20',
-                    estadoLegal: calcLicenseStatus('2027-07-20'),
-                },
-            ],
-            contactosEmergencia: [
-                {
-                    id: 'ec2',
-                    conductorId: 'd2',
-                    nombre: 'Jorge Ramírez',
-                    telefono: '3204567890',
-                    relacion: 'Hermano',
-                },
-            ],
-            creadoEn: '2023-09-01T10:00:00Z',
-            actualizadoEn: '2023-09-01T10:00:00Z',
-        },
-    ])
+    const drivers = ref<Driver[]>([])
+    const isLoading = ref(false)
+
+    async function getSubstatusUuid(name: string): Promise<string> {
+        try {
+            const res = await api.get<any[]>('/drivers/substatuses')
+            const matching = res.data.find(s => s.substatusName.toUpperCase() === name.toUpperCase())
+            return matching ? matching.idSubstatus : ''
+        } catch (e) {
+            console.error('Error fetching substatuses:', e)
+            return ''
+        }
+    }
+
 
     // ── Computed ─────────────────────────────────────────────
 
@@ -170,19 +110,70 @@ export const useDriversStore = defineStore('drivers', () => {
         )
     )
 
-    // ── Validaciones ─────────────────────────────────────────
+    // ── Acciones reales de API ──────────────────────────────
+    async function loadDrivers() {
+        isLoading.value = true
+        try {
+            const response = await api.get<any[]>('/drivers')
+            const summaries = response.data
 
-    /** REQ-19: Cédula única (no modificable tras registro) */
+            const loaded = await Promise.all(summaries.map(async (d: any) => {
+                let fullDetails: any = null
+                try {
+                    const fullRes = await api.get<any>(`/drivers/${d.idDriver}`)
+                    fullDetails = fullRes.data
+                } catch (e) {
+                    console.error(`Error loading details for driver ${d.fullName}:`, e)
+                }
+
+                const licencias: DriverLicense[] = (fullDetails?.licenses || d.licenses || []).map((l: any) => ({
+                    id: l.idLicense || l.id,
+                    conductorId: d.idDriver,
+                    categoria: l.category || l.categoria,
+                    fechaExpedicion: l.issueDate || l.fechaExpedicion,
+                    fechaVencimiento: l.expirationDate || l.fechaVencimiento,
+                    estadoLegal: (l.legalStatus || l.estadoLegal || 'Vigente') as LicenseStatusLegal
+                }))
+
+                const contactosEmergencia: EmergencyContact[] = (fullDetails?.emergencyContacts || []).map((c: any) => ({
+                    id: c.idEmergencyContact || c.id,
+                    conductorId: d.idDriver,
+                    nombre: c.contactName || (c.firstName + ' ' + c.lastName),
+                    telefono: c.contactPhone || c.phone || c.telefono,
+                    relacion: c.relationship || c.relacion || 'Contacto'
+                }))
+
+                return {
+                    id: d.idDriver,
+                    nombre: d.fullName,
+                    cedula: d.idCard,
+                    telefono: fullDetails?.phone || '',
+                    email: fullDetails?.email || '',
+                    estadoLaboral: d.employmentStatus as DriverEmploymentStatus,
+                    subestadoLaboral: d.employmentSubstatus as DriverEmploymentSubstatus,
+                    vehiculoAsignadoId: null,
+                    vehiculoAsignadoPlaca: null,
+                    licencias,
+                    contactosEmergencia,
+                    creadoEn: fullDetails?.hiringDate || '',
+                    actualizadoEn: ''
+                } as Driver
+            }))
+
+            drivers.value = loaded
+        } catch (error) {
+            console.error('Error loading drivers from backend:', error)
+        } finally {
+            isLoading.value = false
+        }
+    }
+
     function isCedulaUnique(cedula: string, excludeId?: string): boolean {
         return !drivers.value.some(
             d => d.cedula === cedula && d.id !== excludeId
         )
     }
 
-    /**
-     * REQ-21: Verifica si el conductor puede participar en nuevas asignaciones.
-     * Debe estar ACTIVO y no tener vehículo asignado.
-     */
     function isAvailableForAssignment(driverId: string): boolean {
         const driver = drivers.value.find(d => d.id === driverId)
         return !!driver &&
@@ -190,202 +181,196 @@ export const useDriversStore = defineStore('drivers', () => {
             !driver.vehiculoAsignadoId
     }
 
-    // ── CRUD ──────────────────────────────────────────────────
-
-    /**
-     * REQ-16, REQ-17
-     * Crea un conductor con sus licencias y contactos de emergencia.
-     * El estadoLegal de cada licencia se calcula automáticamente.
-     */
-    function createDriver(
+    async function createDriver(
         data: DriverFormData,
         usuarioResponsable: string
-    ): { ok: boolean; error?: string } {
-        // Cédula única
-        if (!isCedulaUnique(data.cedula)) {
-            return { ok: false, error: 'La cédula ya existe en el sistema.' }
-        }
-        // Al menos una licencia
-        if (!data.licencias.length) {
-            return { ok: false, error: 'El conductor debe tener al menos una categoría de licencia.' }
-        }
-        // Al menos un contacto de emergencia (REQ-16)
-        if (!data.contactosEmergencia.length) {
-            return { ok: false, error: 'El conductor debe tener al menos un contacto de emergencia.' }
-        }
-        // Categorías únicas (equivalente al UNIQUE constraint de la BD)
-        const categorias = data.licencias.map(l => l.categoria)
-        if (new Set(categorias).size !== categorias.length) {
-            return { ok: false, error: 'No se puede registrar la misma categoría de licencia dos veces.' }
-        }
+    ): Promise<{ ok: boolean; error?: string }> {
+        try {
+            if (!data.licencias.length) {
+                return { ok: false, error: 'El conductor debe tener al menos una categoría de licencia.' }
+            }
+            if (!data.contactosEmergencia.length) {
+                return { ok: false, error: 'El conductor debe tener al menos un contacto de emergencia.' }
+            }
 
-        const id = generateId()
-        const now = isoNow()
-        const subestado = data.subestadoLaboral
+            const emergencyContact = data.contactosEmergencia[0]
+            if (!emergencyContact) {
+                return { ok: false, error: 'El conductor debe tener al menos un contacto de emergencia.' }
+            }
 
-        const licencias: DriverLicense[] = data.licencias.map(l => ({
-            id: generateLicId(),
-            conductorId: id,
-            categoria: l.categoria,
-            fechaExpedicion: l.fechaExpedicion,
-            fechaVencimiento: l.fechaVencimiento,
-            estadoLegal: calcLicenseStatus(l.fechaVencimiento), // REQ-17
-        }))
+            const names = data.nombre.trim().split(' ')
+            const firstName = names[0] || 'Conductor'
+            const lastName = names.slice(1).join(' ') || 'Sin Apellido'
 
-        const contactosEmergencia: EmergencyContact[] = data.contactosEmergencia.map(c => ({
-            id: generateContactId(),
-            conductorId: id,
-            nombre: c.nombre,
-            telefono: c.telefono,
-            relacion: c.relacion,
-        }))
+            await api.post('/drivers', {
+                idCard: data.cedula,
+                firstName,
+                lastName,
+                birthDate: '1995-01-01',
+                phone: data.telefono,
+                hiringDate: new Date().toISOString().split('T')[0],
+                licenses: data.licencias.map(l => ({
+                    category: l.categoria,
+                    issueDate: l.fechaExpedicion,
+                    expirationDate: l.fechaVencimiento
+                })),
+                emergencyContact: {
+                    contactName: emergencyContact.nombre,
+                    contactPhone: emergencyContact.telefono,
+                    relationship: emergencyContact.relacion
+                }
+            })
 
-        const newDriver: Driver = {
-            id,
-            nombre: data.nombre,
-            cedula: data.cedula,
-            telefono: data.telefono,
-            email: data.email,
-            estadoLaboral: statusFromSubstatus(subestado),
-            subestadoLaboral: subestado,
-            vehiculoAsignadoId: null,
-            vehiculoAsignadoPlaca: null,
-            licencias,
-            contactosEmergencia,
-            creadoEn: now,
-            actualizadoEn: now,
+            await loadDrivers()
+
+            audit.log({
+                usuario: usuarioResponsable,
+                accion: 'CREAR_CONDUCTOR',
+                entidad: `Conductor ${data.nombre}`,
+                detalle: `Cédula: ${data.cedula}`,
+            })
+
+            return { ok: true }
+        } catch (error: any) {
+            console.error('Error creating driver:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { ok: false, error: msg }
         }
-
-        drivers.value.push(newDriver)
-        audit.log({
-            usuario: usuarioResponsable,
-            accion: 'CREAR_CONDUCTOR',
-            entidad: `Conductor ${data.nombre}`,
-            detalle: `Cédula: ${data.cedula}`,
-        })
-        return { ok: true }
     }
 
-    /**
-     * REQ-18, REQ-19
-     * Edita datos del conductor y renueva/agrega licencias.
-     * Cédula no modificable (REQ-19).
-     * Al renovar una licencia existente (mismo id_driver + category), actualiza el registro.
-     * El estadoLegal se recalcula automáticamente (REQ-18).
-     */
-    function updateDriver(
+    async function updateDriver(
         id: string,
         data: DriverEditFormData,
         usuarioResponsable: string
-    ): { ok: boolean; error?: string } {
-        const driver = drivers.value.find(d => d.id === id)
-        if (!driver) return { ok: false, error: 'Conductor no encontrado.' }
+    ): Promise<{ ok: boolean; error?: string }> {
+        try {
+            const localDriver = drivers.value.find(d => d.id === id)
+            if (!localDriver) return { ok: false, error: 'Conductor no encontrado.' }
 
-        // Categorías únicas
-        const categorias = data.licencias.map(l => l.categoria)
-        if (new Set(categorias).size !== categorias.length) {
-            return { ok: false, error: 'No se puede registrar la misma categoría de licencia dos veces.' }
-        }
-        if (!data.contactosEmergencia.length) {
-            return { ok: false, error: 'El conductor debe tener al menos un contacto de emergencia.' }
-        }
+            const names = data.nombre.trim().split(' ')
+            const firstName = names[0] || 'Conductor'
+            const lastName = names.slice(1).join(' ') || 'Sin Apellido'
 
-        driver.nombre = data.nombre
-        driver.telefono = data.telefono
-        driver.email = data.email
-        driver.subestadoLaboral = data.subestadoLaboral
-        driver.estadoLaboral = statusFromSubstatus(data.subestadoLaboral)
-        driver.actualizadoEn = isoNow()
+            await api.patch(`/drivers/${id}/personal`, {
+                firstName,
+                lastName,
+                phone: data.telefono
+            })
 
-        // Actualizar licencias: UNIQUE (id_driver, category) → upsert por categoría
-        data.licencias.forEach(l => {
-            const existing = driver.licencias.find(lic => lic.categoria === l.categoria)
-            if (existing) {
-                // Renovación (REQ-18)
-                existing.fechaExpedicion = l.fechaExpedicion
-                existing.fechaVencimiento = l.fechaVencimiento
-                existing.estadoLegal = calcLicenseStatus(l.fechaVencimiento)
-            } else {
-                // Nueva categoría
-                driver.licencias.push({
-                    id: l.id ?? generateLicId(),
-                    conductorId: id,
-                    categoria: l.categoria,
-                    fechaExpedicion: l.fechaExpedicion,
-                    fechaVencimiento: l.fechaVencimiento,
-                    estadoLegal: calcLicenseStatus(l.fechaVencimiento),
+            if (localDriver.subestadoLaboral !== data.subestadoLaboral) {
+                const substatusId = await getSubstatusUuid(data.subestadoLaboral)
+                if (substatusId) {
+                    await api.patch(`/drivers/${id}/status`, {
+                        idSubstatus: substatusId
+                    })
+                }
+            }
+
+            for (const l of data.licencias) {
+                const existingLicense = localDriver.licencias.find(lic => lic.categoria === l.categoria)
+                if (existingLicense) {
+                    await api.patch(`/drivers/${id}/licenses/${existingLicense.id}/expiration`, {
+                        expirationDate: l.fechaVencimiento
+                    })
+                } else {
+                    await api.post(`/drivers/${id}/licenses`, {
+                        category: l.categoria,
+                        issueDate: l.fechaExpedicion,
+                        expirationDate: l.fechaVencimiento
+                    })
+                }
+            }
+
+            const localContact = localDriver.contactosEmergencia[0]
+            const updatedContact = data.contactosEmergencia[0]
+            if (localContact && updatedContact) {
+                await api.patch(`/drivers/${id}/emergency-contact/${localContact.id}`, {
+                    contactName: updatedContact.nombre,
+                    contactPhone: updatedContact.telefono,
+                    relationship: updatedContact.relacion
                 })
             }
-        })
 
-        // Actualizar contactos de emergencia
-        driver.contactosEmergencia = data.contactosEmergencia.map(c => ({
-            id: c.id ?? generateContactId(),
-            conductorId: id,
-            nombre: c.nombre,
-            telefono: c.telefono,
-            relacion: c.relacion,
-        }))
+            await loadDrivers()
 
-        audit.log({
-            usuario: usuarioResponsable,
-            accion: 'EDITAR_CONDUCTOR',
-            entidad: `Conductor ${driver.nombre}`,
-            detalle: 'Datos actualizados',
-        })
-        return { ok: true }
+            audit.log({
+                usuario: usuarioResponsable,
+                accion: 'EDITAR_CONDUCTOR',
+                entidad: `Conductor ${data.nombre}`,
+                detalle: 'Datos y licencias actualizados',
+            })
+
+            return { ok: true }
+        } catch (error: any) {
+            console.error('Error updating driver:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { ok: false, error: msg }
+        }
     }
 
-    /**
-     * REQ-21: Inactiva un conductor (subestado SUSPENDIDO por defecto).
-     * Bloquea su participación en nuevas asignaciones operativas.
-     */
-    function inactivateDriver(
+    async function inactivateDriver(
         id: string,
         subestado: DriverEmploymentSubstatus = 'SUSPENDIDO',
         usuarioResponsable: string
-    ): { ok: boolean; error?: string } {
-        const driver = drivers.value.find(d => d.id === id)
-        if (!driver) return { ok: false, error: 'Conductor no encontrado.' }
-        if (driver.vehiculoAsignadoId) {
-            return { ok: false, error: 'El conductor tiene una asignación activa. Ciérrela primero.' }
+    ): Promise<{ ok: boolean; error?: string }> {
+        try {
+            const substatusId = await getSubstatusUuid(subestado)
+            if (!substatusId) {
+                return { ok: false, error: 'Subestado no configurado en el sistema.' }
+            }
+
+            await api.patch(`/drivers/${id}/status`, {
+                idSubstatus: substatusId
+            })
+
+            await loadDrivers()
+
+            audit.log({
+                usuario: usuarioResponsable,
+                accion: 'INACTIVAR_CONDUCTOR',
+                entidad: `Conductor ID: ${id}`,
+                detalle: `Subestado: ${subestado}`,
+            })
+
+            return { ok: true }
+        } catch (error: any) {
+            console.error('Error inactivating driver:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { ok: false, error: msg }
         }
-
-        driver.subestadoLaboral = subestado
-        driver.estadoLaboral = statusFromSubstatus(subestado)
-        driver.actualizadoEn = isoNow()
-
-        audit.log({
-            usuario: usuarioResponsable,
-            accion: 'INACTIVAR_CONDUCTOR',
-            entidad: `Conductor ${driver.nombre}`,
-            detalle: `Subestado: ${subestado}`,
-        })
-        return { ok: true }
     }
 
-    /** Reactiva un conductor (subestado ACTIVO). */
-    function activateDriver(
+    async function activateDriver(
         id: string,
         usuarioResponsable: string
-    ): { ok: boolean; error?: string } {
-        const driver = drivers.value.find(d => d.id === id)
-        if (!driver) return { ok: false, error: 'Conductor no encontrado.' }
+    ): Promise<{ ok: boolean; error?: string }> {
+        try {
+            const substatusId = await getSubstatusUuid('ACTIVO')
+            if (!substatusId) {
+                return { ok: false, error: 'Subestado ACTIVO no configurado.' }
+            }
 
-        driver.subestadoLaboral = 'ACTIVO'
-        driver.estadoLaboral = 'ACTIVO'
-        driver.actualizadoEn = isoNow()
+            await api.patch(`/drivers/${id}/status`, {
+                idSubstatus: substatusId
+            })
 
-        audit.log({
-            usuario: usuarioResponsable,
-            accion: 'ACTIVAR_CONDUCTOR',
-            entidad: `Conductor ${driver.nombre}`,
-            detalle: 'Reactivado',
-        })
-        return { ok: true }
+            await loadDrivers()
+
+            audit.log({
+                usuario: usuarioResponsable,
+                accion: 'ACTIVAR_CONDUCTOR',
+                entidad: `Conductor ID: ${id}`,
+                detalle: 'Reactivado exitosamente',
+            })
+
+            return { ok: true }
+        } catch (error: any) {
+            console.error('Error activating driver:', error)
+            const msg = error.response?.data?.message || 'Error al conectar con el servidor.'
+            return { ok: false, error: msg }
+        }
     }
 
-    /** Vincula o desvincula un vehículo al conductor. */
     function setAssignedVehicle(
         conductorId: string,
         vehiculoId: string | null,
@@ -395,11 +380,9 @@ export const useDriversStore = defineStore('drivers', () => {
         if (driver) {
             driver.vehiculoAsignadoId = vehiculoId
             driver.vehiculoAsignadoPlaca = vehiculoPlaca
-            driver.actualizadoEn = isoNow()
         }
     }
 
-    /** Recalcula estadoLegal de todas las licencias (útil al iniciar la app). */
     function refreshLicenseStatuses() {
         drivers.value.forEach(driver => {
             driver.licencias.forEach(lic => {
@@ -408,7 +391,6 @@ export const useDriversStore = defineStore('drivers', () => {
         })
     }
 
-    // ── Búsqueda ─────────────────────────────────────────────
     function searchDrivers(query: string): Driver[] {
         const q = query.trim().toLowerCase()
         if (!q) return drivers.value
@@ -426,6 +408,8 @@ export const useDriversStore = defineStore('drivers', () => {
         totalDrivers,
         activeDriversCount,
         driversWithLicenseWarning,
+        isLoading,
+        loadDrivers,
         isCedulaUnique,
         isAvailableForAssignment,
         createDriver,
