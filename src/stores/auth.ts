@@ -6,7 +6,7 @@ import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
 import { useAssignmentsStore } from '@/stores/assignments'
 
-export type UserRole = 'ROLE_ADMINISTRADOR' | 'ROLE_COORDINADOR' | 'ROLE_MECANICO' | 'ROLE_DESPACHADOR'
+export type UserRole = 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
 
 export interface User {
     id: string
@@ -17,10 +17,10 @@ export interface User {
 }
 
 export const ROLE_REDIRECT: Record<UserRole, string> = {
-    ROLE_ADMINISTRADOR:       '/admin/dashboard',
-    ROLE_COORDINADOR: '/coordinator/dashboard',
-    ROLE_MECANICO:    '/mechanic/dashboard',
-    ROLE_DESPACHADOR:  '/dispatcher/dashboard',
+    admin:       '/admin/dashboard',
+    coordinator: '/coordinator/dashboard',
+    mechanic:    '/mechanic/dashboard',
+    dispatcher:  '/dispatcher/dashboard',
 }
 
 /** Tiempo de inactividad permitido antes del cierre automático de sesión (ms) */
@@ -75,11 +75,11 @@ export const useAuthStore = defineStore('auth', () => {
     // ── Acciones ─────────────────────────────────────────────
 
     function mapRole(backendRoles: string[]): UserRole {
-        if (backendRoles.includes('ROLE_ADMINISTRADOR')) return 'ROLE_ADMINISTRADOR'
-        if (backendRoles.includes('ROLE_COORDINADOR') || backendRoles.includes('ROLE_COORDINADOR_FLOTA')) return 'ROLE_COORDINADOR'
-        if (backendRoles.includes('ROLE_MECANICO')) return 'ROLE_MECANICO'
-        if (backendRoles.includes('ROLE_DESPACHADOR')) return 'ROLE_DESPACHADOR'
-        return 'ROLE_DESPACHADOR'
+        if (backendRoles.includes('ROLE_ADMINISTRADOR')) return 'admin'
+        if (backendRoles.includes('ROLE_COORDINADOR') || backendRoles.includes('ROLE_COORDINADOR_FLOTA')) return 'coordinator'
+        if (backendRoles.includes('ROLE_MECANICO')) return 'mechanic'
+        if (backendRoles.includes('ROLE_DESPACHADOR')) return 'dispatcher'
+        return 'dispatcher'
     }
 
     function login(credentials: { email: string; password: string }) {
