@@ -7,18 +7,18 @@
         style="background-color: #e8eaed;"
     >
 
-        <!-- 🔵 FONDOS DIFUMINADOS (más sutiles sobre gris) -->
+        <!-- FONDOS DIFUMINADOS (más sutiles sobre gris) -->
         <div class="absolute inset-0 z-0 pointer-events-none">
         <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-300 opacity-10 blur-[140px]"></div>
         <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600 opacity-10 blur-[140px]"></div>
         </div>
 
-        <!-- 🧱 CONTENIDO (LOGIN) -->
+        <!-- CONTENIDO (LOGIN) -->
         <main class="relative z-10 w-full max-w-120 px-6">
         <slot />
         </main>
 
-        <!-- 🚚 IMAGEN LATERAL -->
+        <!-- IMAGEN LATERAL -->
         <div class="hidden lg:block absolute right-0 top-0 bottom-0 w-[30%] h-full">
         <div class="w-full h-full relative">
 
@@ -28,7 +28,7 @@
             alt="Flota de transporte"
             />
 
-            <!-- 🔥 OVERLAY DEGRADADO -->
+            <!-- OVERLAY DEGRADADO -->
             <div class="absolute inset-0" style="background: linear-gradient(to left, transparent, #e8eaed);"></div>
 
         </div>

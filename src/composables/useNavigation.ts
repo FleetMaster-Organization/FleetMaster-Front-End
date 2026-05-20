@@ -33,8 +33,8 @@ const dispatcherNav: NavItem[] = [
 ]
 
 export const navByRole: Record<UserRole, NavItem[]> = {
-    admin:       adminNav,
-    coordinator: coordinatorNav,
-    mechanic:    mechanicNav,
-    dispatcher:  dispatcherNav,
+    ROLE_ADMINISTRADOR:       adminNav,
+    ROLE_COORDINADOR: coordinatorNav,
+    ROLE_MECANICO:    mechanicNav,
+    ROLE_DESPACHADOR:  dispatcherNav,
 }

@@ -17,7 +17,7 @@ const router = createRouter({
     {
       path: '/admin',
       component: () => import('@/layouts/DashboardLayout.vue'),
-      meta: { requiresAuth: true, role: 'admin' as UserRole },
+      meta: { requiresAuth: true, role: 'ROLE_ADMINISTRADOR' as UserRole },
       children: [
         {
           path: 'dashboard',
@@ -28,13 +28,13 @@ const router = createRouter({
           path: '/admin/vehiculos',
           name: 'admin-vehiculos',
           component: () => import('@/views/admin/VehiculosView.vue'),
-          meta: { requiresAuth: true, role: 'admin' as UserRole },
+          meta: { requiresAuth: true, role: 'ROLE_ADMINISTRADOR' as UserRole },
         },
         {
           path: '/admin/conductores',
           name: 'admin-conductores',
           component: () => import('@/views/admin/ConductoresView.vue'),
-          meta: { requiresAuth: true, role: 'admin' as UserRole },
+          meta: { requiresAuth: true, role: 'ROLE_ADMINISTRADOR' as UserRole },
         },
         {
           path: 'asignaciones',
@@ -45,19 +45,19 @@ const router = createRouter({
           path: '/admin/alertas',
           name: 'admin-alertas',
           component: () => import('@/views/admin/AlertasView.vue'),
-          meta: { requiresAuth: true, role: 'admin' as UserRole },
+          meta: { requiresAuth: true, role: 'ROLE_ADMINISTRADOR' as UserRole },
         },
         {
           path: '/admin/auditoria',
           name: 'admin-auditoria',
           component: () => import('@/views/admin/AuditoriaView.vue'),
-          meta: { requiresAuth: true, role: 'admin' as UserRole },
+          meta: { requiresAuth: true, role: 'ROLE_ADMINISTRADOR' as UserRole },
         },
         {
           path: '/admin/usuarios',
           name: 'admin-usuarios',
           component: () => import('@/views/admin/UsuariosView.vue'),
-          meta: { requiresAuth: true, role: 'admin' as UserRole },
+          meta: { requiresAuth: true, role: 'ROLE_ADMINISTRADOR' as UserRole },
         },
         {
           path: 'mantenimiento',
@@ -71,12 +71,44 @@ const router = createRouter({
     {
       path: '/coordinator',
       component: () => import('@/layouts/DashboardLayout.vue'),
-      meta: { requiresAuth: true, role: 'coordinator' as UserRole },
+      meta: {
+        requiresAuth: true,
+        role: 'ROLE_COORDINADOR' as UserRole,
+      },
       children: [
         {
           path: 'dashboard',
           name: 'coordinator-dashboard',
-          component: () => import('@/views/coordinator/CoordinatorDashboardView.vue'),
+          component: () =>
+            import('@/views/coordinator/CoordinatorDashboardView.vue'),
+        },
+
+        {
+          path: 'vehiculos',
+          name: 'coordinator-vehicles',
+          component: () =>
+            import('@/views/coordinator/CoordinatorVehiclesView.vue'),
+        },
+
+        {
+          path: 'conductores',
+          name: 'coordinator-drivers',
+          component: () =>
+            import('@/views/coordinator/CoordinatorDriversView.vue'),
+        },
+
+        {
+          path: 'asignaciones',
+          name: 'coordinator-assignments',
+          component: () =>
+            import('@/views/coordinator/CoordinatorAssignmentsView.vue'),
+        },
+
+        {
+          path: 'alertas',
+          name: 'coordinator-alerts',
+          component: () =>
+            import('@/views/coordinator/CoordinatorAlertsView.vue'),
         },
       ],
     },
@@ -85,12 +117,22 @@ const router = createRouter({
     {
       path: '/mechanic',
       component: () => import('@/layouts/DashboardLayout.vue'),
-      meta: { requiresAuth: true, role: 'mechanic' as UserRole },
+      meta: { requiresAuth: true, role: 'ROLE_MECANICO' as UserRole },
       children: [
         {
           path: 'dashboard',
           name: 'mechanic-dashboard',
           component: () => import('@/views/mechanic/MechanicDashboardView.vue'),
+        },
+        {
+          path: 'mantenimiento',
+          name: 'mechanic-maintenance',
+          component: () => import('@/views/mechanic/MechanicMaintenanceView.vue'),
+        },
+        {
+          path: 'historial',
+          name: 'mechanic-history',
+          component: () => import('@/views/mechanic/MechanicHistoryView.vue'),
         },
       ],
     },
@@ -99,7 +141,7 @@ const router = createRouter({
     {
       path: '/dispatcher',
       component: () => import('@/layouts/DashboardLayout.vue'),
-      meta: { requiresAuth: true, role: 'dispatcher' as UserRole },
+      meta: { requiresAuth: true, role: 'ROLE_DESPACHADOR' as UserRole },
       children: [
         {
           path: 'dashboard',
