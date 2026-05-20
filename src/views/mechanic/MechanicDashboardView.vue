@@ -122,7 +122,7 @@ function formatCurrency(value: number) {
 </script>
 
 <template>
-    <div class="space-y-6 max-w-[1400px]">
+    <div class="space-y-6 max-w-350">
         <!-- Header -->
         <div>
             <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
