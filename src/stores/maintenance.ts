@@ -107,17 +107,24 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
             const backendRecord = res.data
 
             const newRecord: MaintenanceRecord = {
-                ...data,
-                id:                  backendRecord.id || generateId(),
-                vehiculoPlaca:       vehicle.placa,
-                vehiculoMarca:       vehicle.marca,
-                vehiculoModelo:      vehicle.modelo,
-                fechaSalida:         null,
-                kilometrajeIngreso:  vehicle.kilometraje,
-                kilometrajeSalida:   null,
-                comentariosCierre:   null,
-                proximoMantenimiento: null,
-                estado:              'Abierto',
+            id: backendRecord.id || generateId(),
+            vehiculoId: data.vehiculoId,
+            vehiculoPlaca: vehicle.placa,
+            vehiculoMarca: vehicle.marca,
+            vehiculoModelo: vehicle.modelo,
+
+            tipo: data.tipo,
+            descripcion: data.descripcion,
+            fechaIngreso: data.fechaIngreso,
+            costo: data.costo,
+            tecnico: data.tecnico,
+
+            fechaSalida: null,
+            kilometrajeIngreso: vehicle.kilometraje,
+            kilometrajeSalida: null,
+            comentariosCierre: null,
+            proximoMantenimiento: null,
+            estado: 'Abierto',
             }
             records.value.unshift(newRecord)
 
