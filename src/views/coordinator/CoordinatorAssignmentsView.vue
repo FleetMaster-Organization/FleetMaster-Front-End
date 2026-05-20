@@ -125,7 +125,7 @@ function openCreateModal() {
     showCreateModal.value = true
 }
 
-function createAssignment() {
+async function createAssignment() {
     formError.value = ''
 
     if (!form.vehiculoId || !form.conductorId) {
@@ -133,7 +133,7 @@ function createAssignment() {
         return
     }
 
-    const result = assignmentsStore.createAssignment({ ...form })
+    const result = await assignmentsStore.createAssignment({ ...form })
 
     if (result.success) {
         showCreateModal.value = false
@@ -152,11 +152,11 @@ function openCloseModal(assignment: Assignment) {
     showCloseModal.value      = true
 }
 
-function closeAssignment() {
+async function closeAssignment() {
     if (!closingAssignment.value) return
     closeError.value = ''
 
-    const result = assignmentsStore.closeAssignment(
+    const result = await assignmentsStore.closeAssignment(
         closingAssignment.value.id,
         { ...closeForm }
     )
