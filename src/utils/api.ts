@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 export const api = axios.create({
-    baseURL: (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8080',
+    baseURL: 'http://158.247.122.168:8080', // TODO: migrate to VITE_API_BASE_URL env var
     headers: {
         'Content-Type': 'application/json',
     },
