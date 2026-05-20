@@ -82,22 +82,45 @@ export const useAuthStore = defineStore('auth', () => {
         return 'dispatcher'
     }
 
-    function login(credentials: { email: string; password: string }) {
-        const mockUser: User = {
-            id:    '1',
-            name:  'Ali Baba',
-            email: credentials.email,
-            role:  'admin', // 'coordinator' | 'mechanic' | 'dispatcher'
-        }
-        const mockToken = 'mock-jwt-token'
+    async function login(credentials: { email: string; password: string }): Promise<void> {
+        const response = await api.post<{
+            accessToken: string
+            refreshToken: string
+            idUser: string
+            email: string
+            roles: string[]
+        }>('/auth/login', credentials)
 
-        user.value  = mockUser
-        token.value = mockToken
-        localStorage.setItem('token', mockToken)
-        localStorage.setItem('user', JSON.stringify(mockUser))
+        const data = response.data
+        const role = mapRole(data.roles)
+
+        const loggedUser: User = {
+            id: data.idUser,
+            name: data.email.split('@')[0] || 'Usuario',
+            email: data.email,
+            role: role,
+        }
+
+        user.value  = loggedUser
+        token.value = data.accessToken
+        localStorage.setItem('token', data.accessToken)
+        localStorage.setItem('refreshToken', data.refreshToken)
+        localStorage.setItem('user', JSON.stringify(loggedUser))
+
+        // Trigger background loads of other stores on login
+        try {
+            const vehiclesStore = useVehiclesStore()
+            const driversStore = useDriversStore()
+            const assignmentsStore = useAssignmentsStore()
+            vehiclesStore.loadVehicles()
+            driversStore.loadDrivers()
+            assignmentsStore.loadAssignments()
+        } catch (e) {
+            console.error('Error in background store initialization:', e)
+        }
 
         startInactivityWatcher()
-        router.push(ROLE_REDIRECT[mockUser.role])
+        router.push(ROLE_REDIRECT[role])
     }
 
     async function logout(dueToInactivity = false) {
