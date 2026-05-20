@@ -122,7 +122,7 @@ const recentActivities = computed<ActivityItem[]>(() =>
 </script>
 
 <template>
-    <div class="p-6 space-y-6 max-w-400">
+    <div class="p-6 space-y-6 max-w-[1600px]">
         <!-- Header -->
         <div>
             <h1 class="text-2xl font-bold text-slate-800 tracking-tight">
