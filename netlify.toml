@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/api/*"
+  to = "http://158.247.122.168:8080/:splat"
+  status = 200
+  force = true

@@ -1,9 +1,10 @@
 import axios from 'axios'
 
 export const api = axios.create({
-    // Dev: Vite proxies /api → http://158.247.122.168:8080 (avoids mixed-content)
-    // Prod: direct gateway URL (requires HTTPS on gateway — infra pending)
-    baseURL: import.meta.env.DEV ? '/api' : 'http://158.247.122.168:8080',
+    // /api is proxied server-side in all environments:
+    // - Dev:  Vite proxy (vite.config.ts)
+    // - Prod: Netlify proxy redirect (netlify.toml)
+    baseURL: '/api',
     headers: {
         'Content-Type': 'application/json',
     },
