@@ -83,7 +83,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
 
             await Promise.all(vehiclesStore.vehicles.map(async (v) => {
                 try {
-                    const res = await api.get<any>(`/assignments/api/vehiculos/${v.id}/historial`)
+                    const res = await api.get<any>(`/assignments/vehiculos/${v.id}/historial`)
                     const history = res.data.data || []
 
                     history.forEach((item: any) => {
@@ -160,7 +160,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         try {
             const userId = authStore.user?.id || '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
-            await api.post('/assignments/api/asignaciones', {
+            await api.post('/assignments/asignaciones', {
                 vehicleId: vehicle.id,
                 driverId: driver.id,
                 userId: userId
@@ -204,7 +204,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         try {
             const userId = authStore.user?.id || '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
-            await api.patch(`/assignments/api/asignaciones/${id}/cerrar`, {
+            await api.patch(`/assignments/asignaciones/${id}/cerrar`, {
                 finalKm: data.kilometrajeFin,
                 userId: userId
             })
