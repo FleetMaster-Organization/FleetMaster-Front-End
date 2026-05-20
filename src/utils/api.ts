@@ -1,7 +1,9 @@
 import axios from 'axios'
 
 export const api = axios.create({
-    baseURL: 'http://158.247.122.168:8080', // TODO: migrate to VITE_API_BASE_URL env var
+    // Dev: Vite proxies /api → http://158.247.122.168:8080 (avoids mixed-content)
+    // Prod: direct gateway URL (requires HTTPS on gateway — infra pending)
+    baseURL: import.meta.env.DEV ? '/api' : 'http://158.247.122.168:8080',
     headers: {
         'Content-Type': 'application/json',
     },
