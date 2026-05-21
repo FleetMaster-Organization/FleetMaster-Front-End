@@ -68,6 +68,42 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    // ── Temporizador de refresco automático de token ──────────
+    let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null
+
+    function startTokenRefreshTimer() {
+        if (tokenRefreshInterval !== null) clearInterval(tokenRefreshInterval)
+        // Refrescar cada 4 minutos para evitar la expiración del token y los 401
+        tokenRefreshInterval = setInterval(async () => {
+            const rt = localStorage.getItem('refreshToken')
+            if (rt && token.value) {
+                try {
+                    const response = await api.post<{
+                        accessToken: string
+                        refreshToken: string
+                    }>('/auth/refresh', {}, {
+                        headers: {
+                            'Refresh-Token': rt
+                        }
+                    })
+                    const data = response.data
+                    token.value = data.accessToken
+                    localStorage.setItem('token', data.accessToken)
+                    localStorage.setItem('refreshToken', data.refreshToken)
+                } catch (e) {
+                    console.error('Error en refresco automático de token:', e)
+                }
+            }
+        }, 4 * 60 * 1000)
+    }
+
+    function stopTokenRefreshTimer() {
+        if (tokenRefreshInterval !== null) {
+            clearInterval(tokenRefreshInterval)
+            tokenRefreshInterval = null
+        }
+    }
+
     // ── Computed ─────────────────────────────────────────────
     const isAuthenticated = computed(() => !!token.value && !!user.value)
     const userRole        = computed(() => user.value?.role ?? null)
@@ -148,6 +184,7 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('user', JSON.stringify(loggedUser))
 
         startInactivityWatcher()
+        startTokenRefreshTimer()
         await bootstrapSessionData()
         await router.push(ROLE_REDIRECT[role])
     }
@@ -167,6 +204,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
 
         stopInactivityWatcher()
+        stopTokenRefreshTimer()
 
         user.value  = null
         token.value = null
@@ -187,6 +225,7 @@ export const useAuthStore = defineStore('auth', () => {
             if (!user.value) {
                 user.value = JSON.parse(stored)
                 startInactivityWatcher()
+                startTokenRefreshTimer()
 
                 void bootstrapSessionData()
             }

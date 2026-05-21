@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import StatCard from '@/components/dashboard/StatCard.vue'
@@ -24,6 +24,15 @@ const vehiclesStore = useVehiclesStore()
 const driversStore = useDriversStore()
 const assignmentsStore = useAssignmentsStore()
 const alertsStore = useAlertsStore()
+
+onMounted(async () => {
+    await Promise.all([
+        vehiclesStore.loadVehicles(),
+        driversStore.loadDrivers(),
+        assignmentsStore.loadAssignments(),
+        alertsStore.loadAlerts(),
+    ])
+})
 
 // ─── Top stats ───────────────────────────────────────────────
 const topStats = computed<StatCardData[]>(() => {
