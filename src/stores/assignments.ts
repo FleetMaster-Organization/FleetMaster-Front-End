@@ -82,9 +82,32 @@ export const useAssignmentsStore = defineStore('assignments', () => {
             const res = await api.get<any>('/assignments/api/asignaciones')
             const backendList = res.data.data || []
 
+            // Reset active assignment references first to avoid stale states
+            vehiclesStore.vehicles.forEach(v => {
+                v.conductorAsignadoId = null
+                v.conductorAsignadoNombre = null
+            })
+            driversStore.drivers.forEach(d => {
+                d.vehiculoAsignadoId = null
+                d.vehiculoAsignadoPlaca = null
+            })
+
             const allAssignments: Assignment[] = backendList.map((item: any) => {
                 const vehicle = vehiclesStore.vehicles.find(v => v.id === item.vehicleId)
                 const driver = driversStore.drivers.find(d => d.id === item.driverId)
+
+                const isActiva = !item.endDate
+
+                if (isActiva) {
+                    if (vehicle) {
+                        vehicle.conductorAsignadoId = item.driverId
+                        vehicle.conductorAsignadoNombre = item.driverName
+                    }
+                    if (driver) {
+                        driver.vehiculoAsignadoId = item.vehicleId
+                        driver.vehiculoAsignadoPlaca = item.vehiclePlate
+                    }
+                }
 
                 return {
                     id: item.id,
@@ -100,7 +123,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
                     kilometrajeInicio: item.initialKm,
                     kilometrajeFin: item.finalKm,
                     usuarioResponsable: 'Admin',
-                    estado: item.endDate ? 'Finalizada' : 'Activa'
+                    estado: isActiva ? 'Activa' : 'Finalizada'
                 }
             })
 
