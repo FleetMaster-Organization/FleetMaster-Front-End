@@ -48,12 +48,6 @@ const router = createRouter({
           meta: { requiresAuth: true, role: 'admin' as UserRole },
         },
         {
-          path: '/admin/auditoria',
-          name: 'admin-auditoria',
-          component: () => import('@/views/admin/AuditoriaView.vue'),
-          meta: { requiresAuth: true, role: 'admin' as UserRole },
-        },
-        {
           path: '/admin/usuarios',
           name: 'admin-usuarios',
           component: () => import('@/views/admin/UsuariosView.vue'),

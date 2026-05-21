@@ -8,7 +8,6 @@ const adminNav: NavItem[] = [
     { label: 'Asignaciones', icon: 'link',      to: '/admin/asignaciones' },
     { label: 'Mantenimiento',icon: 'wrench',    to: '/admin/mantenimiento'},
     { label: 'Alertas',      icon: 'bell',      to: '/admin/alertas'      },
-    { label: 'Auditoría',    icon: 'file-text', to: '/admin/auditoria'    },
     { label: 'Usuarios',     icon: 'user-cog',  to: '/admin/usuarios'     },
 ]
 

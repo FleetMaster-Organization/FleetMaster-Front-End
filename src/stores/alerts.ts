@@ -1,134 +1,96 @@
 import { defineStore } from 'pinia'
-import { computed, reactive } from 'vue'
-import type { SystemAlert, AlertDocType } from '@/types'
+import { computed, ref } from 'vue'
+import type { SystemAlert, AlertDocType, AlertSeverity, AlertStatus } from '@/types'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore }  from '@/stores/drivers'
-import { useAuditStore }    from '@/stores/audit'
-
-// ── Helper ────────────────────────────────────────────────────
-function diffDays(isoDate: string): number {
-    const hoy = new Date()
-    hoy.setHours(0, 0, 0, 0)
-    return Math.ceil((new Date(isoDate).getTime() - hoy.getTime()) / 86400000)
-}
+import { api } from '@/utils/api'
 
 export const useAlertsStore = defineStore('alerts', () => {
     const vehiclesStore = useVehiclesStore()
     const driversStore  = useDriversStore()
-    const auditStore    = useAuditStore()
 
-    // Metadatos de gestión (persisten en memoria durante la sesión)
-    const managedIds      = reactive<Record<string, boolean>>({})
-    const gestionMetadata = reactive<Record<string, { en: string; por: string }>>({})
+    const rawAlerts = ref<any[]>([])
+    const isLoading = ref(false)
 
-    // ── Computed principal ────────────────────────────────────
+    // Cargar alertas desde el microservicio backend
+    async function loadAlerts() {
+        isLoading.value = true
+        try {
+            const res = await api.get<any[]>('/alerts')
+            rawAlerts.value = res.data || []
+        } catch (error) {
+            console.error('Error al cargar alertas del backend:', error)
+        } finally {
+            isLoading.value = false
+        }
+    }
+
+    // Mapeo dinámico y reactivo de AlertResponse a SystemAlert
     const alerts = computed<SystemAlert[]>(() => {
-        const result: SystemAlert[] = []
-
-        // ── Alertas de documentos de vehículos ────────────────
-        // Ahora itera vehicle.documentos[] en lugar de campos planos.
-        // Solo genera alerta si el vehículo no está Vendido.
-        for (const v of vehiclesStore.vehicles) {
-            if (v.estadoAdministrativo === 'Vendido') continue
-
-            for (const doc of v.documentos) {
-                const dias = diffDays(doc.fechaVencimiento)
-                if (dias > 30) continue
-
-                // ID único por vehículo + tipo de documento
-                const id = `${doc.tipo.toLowerCase()}-${v.id}`
-                const tipo: AlertDocType =
-                    doc.tipo === 'SOAT' ? 'SOAT' : 'Tecnomecánica'
-
-                result.push({
-                    id,
-                    tipo,
-                    severidad:    dias < 0 ? 'Vencido' : 'Por vencer',
-                    estado:       managedIds[id] ? 'Gestionada' : 'Pendiente',
-                    entidadTipo:  'vehiculo',
-                    entidadId:    v.id,
-                    entidadNombre: v.placa,
-                    fechaVencimiento: doc.fechaVencimiento,
-                    diasRestantes:    dias,
-                    gestionadaEn:  gestionMetadata[id]?.en  ?? null,
-                    gestionadaPor: gestionMetadata[id]?.por ?? null,
-                })
+        return rawAlerts.value.map((item: any) => {
+            const entType = (item.entityType === 'VEHICLE' || item.entityType === 'VEHICULO') ? 'vehiculo' : 'conductor'
+            
+            let name = 'Desconocido'
+            if (entType === 'vehiculo') {
+                const v = vehiclesStore.vehicles.find(x => x.id === item.entityId)
+                name = v ? v.placa : `Vehículo [${item.entityId.substring(0, 8)}]`
+            } else {
+                const d = driversStore.drivers.find(x => x.id === item.entityId)
+                name = d ? d.nombre : `Conductor [${item.entityId.substring(0, 8)}]`
             }
-        }
 
-        // ── Alertas de licencias de conductores ───────────────
-        // Ahora itera driver.licencias[] (múltiples categorías).
-        // Genera una alerta por cada categoría de licencia que esté
-        // vencida o por vencer, independientemente de las otras.
-        // Solo genera alerta si el conductor no está RETIRADO.
-        for (const d of driversStore.drivers) {
-            if (d.estadoLaboral === 'RETIRADO') continue
-
-            for (const lic of d.licencias) {
-                const dias = diffDays(lic.fechaVencimiento)
-                if (dias > 30) continue
-
-                // ID único por conductor + categoría de licencia
-                const id = `lic-${d.id}-${lic.categoria}`
-
-                result.push({
-                    id,
-                    tipo: 'Licencia de conducción',
-                    severidad:    dias < 0 ? 'Vencido' : 'Por vencer',
-                    estado:       managedIds[id] ? 'Gestionada' : 'Pendiente',
-                    entidadTipo:  'conductor',
-                    entidadId:    d.id,
-                    // Incluye la categoría para distinguir alertas del mismo conductor
-                    entidadNombre: `${d.nombre} (Cat. ${lic.categoria})`,
-                    fechaVencimiento: lic.fechaVencimiento,
-                    diasRestantes:    dias,
-                    gestionadaEn:  gestionMetadata[id]?.en  ?? null,
-                    gestionadaPor: gestionMetadata[id]?.por ?? null,
-                })
+            let docType: AlertDocType = 'SOAT'
+            if (item.documentType === 'TECNO' || item.documentType === 'TECNOMECANICA') {
+                docType = 'Tecnomecánica'
+            } else if (item.documentType === 'LICENCIA' || item.documentType === 'LICENCIA_CONDUCCION') {
+                docType = 'Licencia de conducción'
             }
-        }
 
-        // Ordenar: primero las más críticas (días más negativos o menores)
-        return result.sort((a, b) => a.diasRestantes - b.diasRestantes)
+            const sev: AlertSeverity = (item.criticality === 'CRITICAL' || item.criticality === 'VENCIDO' || item.daysUntilExpiration < 0) ? 'Vencido' : 'Por vencer'
+            const est: AlertStatus = (item.status === 'PENDIENTE' || item.status === 'PENDING') ? 'Pendiente' : 'Gestionada'
+
+            return {
+                id: item.id.toString(),
+                tipo: docType,
+                severidad: sev,
+                estado: est,
+                entidadTipo: entType,
+                entidadId: item.entityId,
+                entidadNombre: name,
+                fechaVencimiento: item.expirationDate,
+                diasRestantes: item.daysUntilExpiration,
+                gestionadaEn: item.resolvedAt || null,
+                gestionadaPor: item.resolvedBy || null
+            }
+        })
     })
 
-    // ── Computed derivados ────────────────────────────────────
+    // Getters y filtros requeridos por las vistas
     const pendientes   = computed(() => alerts.value.filter(a => a.estado === 'Pendiente'))
     const gestionadas  = computed(() => alerts.value.filter(a => a.estado === 'Gestionada'))
     const criticas     = computed(() => pendientes.value.filter(a => a.severidad === 'Vencido'))
     const advertencias = computed(() => pendientes.value.filter(a => a.severidad === 'Por vencer'))
 
-    // ── Acciones ──────────────────────────────────────────────
-    function markManaged(id: string, usuario: string): { ok: boolean } {
-        managedIds[id] = true
-        gestionMetadata[id] = {
-            en:  new Date().toISOString(),
-            por: usuario,
-        }
-
-        auditStore.log({
-            accion: 'GESTIONAR_ALERTA',
-            usuario,
-            entidad: `Alerta ${id}`,
-            detalle: 'Alerta marcada como gestionada',
-        })
-
-        return { ok: true }
-    }
-
-    /**
-     * Limpia las marcas de gestión de alertas que ya no existen
-     * en la lista actual (útil al renovar un documento o licencia).
-     * Llamar desde el componente AlertasView al montar o al detectar cambios.
-     */
-    function cleanStaleManagedIds(): void {
-        const activeIds = new Set(alerts.value.map(a => a.id))
-        for (const id of Object.keys(managedIds)) {
-            if (!activeIds.has(id)) {
-                delete managedIds[id]
-                delete gestionMetadata[id]
+    // Marcar una alerta como gestionada en el backend
+    async function markManaged(id: string, usuario: string): Promise<{ success: boolean; error?: string }> {
+        try {
+            await api.patch(`/alerts/${id}/manage`, {
+                resolvedBy: usuario
+            })
+            await loadAlerts()
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error al gestionar alerta:', error)
+            return {
+                success: false,
+                error: error.response?.data?.message || 'Error al gestionar la alerta.'
             }
         }
+    }
+
+    // Mantener compatibilidad con llamadas existentes del ciclo de vida
+    function cleanStaleManagedIds() {
+        // No-op: Gestionado nativamente por el backend
     }
 
     return {
@@ -137,7 +99,9 @@ export const useAlertsStore = defineStore('alerts', () => {
         gestionadas,
         criticas,
         advertencias,
+        isLoading,
+        loadAlerts,
         markManaged,
-        cleanStaleManagedIds,
+        cleanStaleManagedIds
     }
 })
