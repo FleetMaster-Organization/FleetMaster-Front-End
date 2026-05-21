@@ -13,8 +13,13 @@ export const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token')
-        if (token && config.headers) {
-            config.headers.Authorization = `Bearer ${token}`
+        if (token) {
+            config.headers = config.headers || {}
+            if (typeof config.headers.set === 'function') {
+                config.headers.set('Authorization', `Bearer ${token}`)
+            } else {
+                config.headers.Authorization = `Bearer ${token}`
+            }
         }
         return config
     },
@@ -88,7 +93,12 @@ api.interceptors.response.use(
 
                 return new Promise((resolve) => {
                     subscribeTokenRefresh((token) => {
-                        originalRequest.headers.Authorization = `Bearer ${token}`
+                        originalRequest.headers = originalRequest.headers || {}
+                        if (typeof originalRequest.headers.set === 'function') {
+                            originalRequest.headers.set('Authorization', `Bearer ${token}`)
+                        } else {
+                            originalRequest.headers.Authorization = `Bearer ${token}`
+                        }
                         resolve(api(originalRequest))
                     })
                 })
