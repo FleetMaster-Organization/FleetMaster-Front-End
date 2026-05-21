@@ -24,6 +24,26 @@ export const useUsersStore = defineStore('users', () => {
     const auditStore = useAuditStore()
     const users = ref<AppUser[]>([])
     const isLoading = ref(false)
+    const rolesList = ref<{ idRole: string; nameRole: string }[]>([])
+
+    async function loadRoles() {
+        try {
+            const res = await api.get<any[]>('/admin/roles')
+            rolesList.value = res.data || []
+        } catch (error) {
+            console.error('Error loading roles:', error)
+        }
+    }
+
+    function getRoleId(roleName: UserRole): string {
+        const backendName =
+            roleName === 'admin' ? 'ROLE_ADMINISTRADOR' :
+            roleName === 'coordinator' ? 'ROLE_COORDINADOR' :
+            roleName === 'mechanic' ? 'ROLE_MECANICO' : 'ROLE_DESPACHADOR';
+        const found = rolesList.value.find(r => r.nameRole === backendName)
+        if (found) return found.idRole
+        return ROLE_MAP[roleName]
+    }
 
     const activos   = computed(() => users.value.filter(u => u.estado === 'Activo'))
     const inactivos = computed(() => users.value.filter(u => u.estado === 'Inactivo'))
@@ -32,6 +52,9 @@ export const useUsersStore = defineStore('users', () => {
     async function loadUsers() {
         isLoading.value = true
         try {
+            if (rolesList.value.length === 0) {
+                await loadRoles()
+            }
             const res = await api.get<any[]>('/admin/users')
             const list = res.data || []
             users.value = list.map((item: any) => ({
@@ -53,7 +76,7 @@ export const useUsersStore = defineStore('users', () => {
 
     async function createUser(data: UserFormData): Promise<{ success: boolean; error?: string }> {
         try {
-            const roleId = ROLE_MAP[data.rol]
+            const roleId = getRoleId(data.rol)
             await api.post('/admin/users', {
                 fullName: data.nombreCompleto,
                 email: data.email,
@@ -82,7 +105,7 @@ export const useUsersStore = defineStore('users', () => {
         data: Omit<UserFormData, 'password'> & { password?: string }
     ): Promise<{ success: boolean; error?: string }> {
         try {
-            const roleId = ROLE_MAP[data.rol]
+            const roleId = getRoleId(data.rol)
             await api.put(`/admin/users/${id}`, {
                 fullName: data.nombreCompleto,
                 email: data.email,

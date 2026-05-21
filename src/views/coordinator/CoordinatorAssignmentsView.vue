@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch, onMounted } from 'vue'
 
 import SearchBar from '@/components/ui/SearchBar.vue'
 import DataTable from '@/components/ui/DataTable.vue'
@@ -26,6 +26,14 @@ const assignmentsStore = useAssignmentsStore()
 const vehiclesStore    = useVehiclesStore()
 const driversStore     = useDriversStore()
 const authStore        = useAuthStore()
+
+onMounted(async () => {
+    await Promise.all([
+        assignmentsStore.loadAssignments(),
+        vehiclesStore.loadVehicles(),
+        driversStore.loadDrivers(),
+    ])
+})
 
 // ─── Search & filters ────────────────────────────────────────
 const search       = ref('')
