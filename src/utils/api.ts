@@ -45,11 +45,11 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config
         if (error.response?.status === 401 && !originalRequest._retry) {
-            if (originalRequest.url?.includes('/auth/refresh')) {
+            if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
                 localStorage.removeItem('token')
                 localStorage.removeItem('refreshToken')
                 localStorage.removeItem('user')
-                if (!window.location.pathname.includes('/login')) {
+                if (!window.location.pathname.includes('/login') && originalRequest.url?.includes('/auth/refresh')) {
                     window.location.href = '/login?reason=session_expired'
                 }
                 return Promise.reject(error)

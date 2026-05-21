@@ -83,6 +83,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function login(credentials: { email: string; password: string }): Promise<void> {
+        // Clear any old/existing session to prevent stale states on failed logins
+        user.value = null
+        token.value = null
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('user')
+
         const response = await api.post<{
             accessToken: string
             refreshToken: string
