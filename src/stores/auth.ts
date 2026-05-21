@@ -5,6 +5,7 @@ import { api } from '@/utils/api'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
 import { useAssignmentsStore } from '@/stores/assignments'
+import { useUsersStore } from '@/stores/users'
 
 export type UserRole = 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
 
@@ -39,6 +40,7 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
 export const useAuthStore = defineStore('auth', () => {
     const user  = ref<User | null>(null)
     const token = ref<string | null>(localStorage.getItem('token'))
+    const isBootstrapping = ref(false)
 
     // ── Temporizador de inactividad ──────────────────────────
     let inactivityTimer: ReturnType<typeof setTimeout> | null = null
@@ -82,6 +84,32 @@ export const useAuthStore = defineStore('auth', () => {
         return 'dispatcher'
     }
 
+    async function bootstrapSessionData() {
+        if (!user.value || isBootstrapping.value) return
+
+        isBootstrapping.value = true
+        try {
+            const vehiclesStore = useVehiclesStore()
+            const driversStore = useDriversStore()
+            const assignmentsStore = useAssignmentsStore()
+
+            await Promise.all([
+                vehiclesStore.loadVehicles(),
+                driversStore.loadDrivers(),
+            ])
+            await assignmentsStore.loadAssignments()
+
+            if (user.value.role === 'admin') {
+                const usersStore = useUsersStore()
+                await usersStore.loadUsers()
+            }
+        } catch (e) {
+            console.error('Error loading session data:', e)
+        } finally {
+            isBootstrapping.value = false
+        }
+    }
+
     async function login(credentials: { email: string; password: string }): Promise<void> {
         // Clear any old/existing session to prevent stale states on failed logins
         user.value = null
@@ -114,20 +142,9 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('refreshToken', data.refreshToken)
         localStorage.setItem('user', JSON.stringify(loggedUser))
 
-        // Trigger background loads of other stores on login
-        try {
-            const vehiclesStore = useVehiclesStore()
-            const driversStore = useDriversStore()
-            const assignmentsStore = useAssignmentsStore()
-            vehiclesStore.loadVehicles()
-            driversStore.loadDrivers()
-            assignmentsStore.loadAssignments()
-        } catch (e) {
-            console.error('Error in background store initialization:', e)
-        }
-
         startInactivityWatcher()
-        router.push(ROLE_REDIRECT[role])
+        await bootstrapSessionData()
+        await router.push(ROLE_REDIRECT[role])
     }
 
     async function logout(dueToInactivity = false) {
@@ -166,17 +183,7 @@ export const useAuthStore = defineStore('auth', () => {
                 user.value = JSON.parse(stored)
                 startInactivityWatcher()
 
-                // Trigger background loads of other stores on restoreSession init
-                try {
-                    const vehiclesStore = useVehiclesStore()
-                    const driversStore = useDriversStore()
-                    const assignmentsStore = useAssignmentsStore()
-                    vehiclesStore.loadVehicles()
-                    driversStore.loadDrivers()
-                    assignmentsStore.loadAssignments()
-                } catch (e) {
-                    console.error('Error in background store restore:', e)
-                }
+                void bootstrapSessionData()
             }
         }
     }
@@ -184,11 +191,13 @@ export const useAuthStore = defineStore('auth', () => {
     return {
         user,
         token,
+        isBootstrapping,
         isAuthenticated,
         userRole,
         dashboardRoute,
         login,
         logout,
         restoreSession,
+        bootstrapSessionData,
     }
 })
