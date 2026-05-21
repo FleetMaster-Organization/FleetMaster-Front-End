@@ -132,19 +132,21 @@ export const useAuthStore = defineStore('auth', () => {
     function restoreSession() {
         const stored = localStorage.getItem('user')
         if (stored && token.value) {
-            user.value = JSON.parse(stored)
-            startInactivityWatcher()
+            if (!user.value) {
+                user.value = JSON.parse(stored)
+                startInactivityWatcher()
 
-            // Trigger background loads of other stores on restoreSession
-            try {
-                const vehiclesStore = useVehiclesStore()
-                const driversStore = useDriversStore()
-                const assignmentsStore = useAssignmentsStore()
-                vehiclesStore.loadVehicles()
-                driversStore.loadDrivers()
-                assignmentsStore.loadAssignments()
-            } catch (e) {
-                console.error('Error in background store restore:', e)
+                // Trigger background loads of other stores on restoreSession init
+                try {
+                    const vehiclesStore = useVehiclesStore()
+                    const driversStore = useDriversStore()
+                    const assignmentsStore = useAssignmentsStore()
+                    vehiclesStore.loadVehicles()
+                    driversStore.loadDrivers()
+                    assignmentsStore.loadAssignments()
+                } catch (e) {
+                    console.error('Error in background store restore:', e)
+                }
             }
         }
     }
