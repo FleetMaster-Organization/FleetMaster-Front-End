@@ -7,6 +7,7 @@ import { useDriversStore } from '@/stores/drivers'
 import { useAssignmentsStore } from '@/stores/assignments'
 import { useUsersStore } from '@/stores/users'
 import { useAuditStore } from '@/stores/audit'
+import { useMaintenanceStore } from '@/stores/maintenance'
 
 export type UserRole = 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
 
@@ -129,13 +130,27 @@ export const useAuthStore = defineStore('auth', () => {
             const vehiclesStore = useVehiclesStore()
             const driversStore = useDriversStore()
             const assignmentsStore = useAssignmentsStore()
+            const maintenanceStore = useMaintenanceStore()
 
-            await Promise.all([
-                vehiclesStore.loadVehicles(),
-                driversStore.loadDrivers(),
-            ])
-            await assignmentsStore.loadAssignments()
+            // 1. Vehicles: loaded by everyone (all roles have permission)
+            await vehiclesStore.loadVehicles()
 
+            // 2. Drivers and Assignments: loaded by admin, coordinator, dispatcher
+            const hasAccessToDriversAndAssignments = ['admin', 'coordinator', 'dispatcher'].includes(user.value.role)
+            if (hasAccessToDriversAndAssignments) {
+                await Promise.all([
+                    driversStore.loadDrivers(),
+                    assignmentsStore.loadAssignments()
+                ])
+            }
+
+            // 3. Maintenances: loaded by admin and mechanic
+            const hasAccessToMaintenance = ['admin', 'mechanic'].includes(user.value.role)
+            if (hasAccessToMaintenance) {
+                await maintenanceStore.loadMaintenances()
+            }
+
+            // 4. Admin-only: users and logs
             if (user.value.role === 'admin') {
                 const usersStore = useUsersStore()
                 const auditStore = useAuditStore()
