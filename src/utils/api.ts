@@ -1,7 +1,10 @@
 import axios from 'axios'
 
 export const api = axios.create({
-    baseURL: 'http://158.247.122.168:8080', // TODO: migrate to VITE_API_BASE_URL env var
+    // /api is proxied server-side in all environments:
+    // - Dev:  Vite proxy (vite.config.ts)
+    // - Prod: Netlify proxy redirect (netlify.toml)
+    baseURL: '/api',
     headers: {
         'Content-Type': 'application/json',
     },
