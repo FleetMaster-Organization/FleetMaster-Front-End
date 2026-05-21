@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
 import { useAlertsStore } from '@/stores/alerts'
@@ -14,6 +14,12 @@ const vehiclesStore = useVehiclesStore()
 const driversStore = useDriversStore()
 const alertsStore = useAlertsStore()
 const auditStore = useAuditStore()
+
+onMounted(() => {
+    vehiclesStore.loadVehicles()
+    driversStore.loadDrivers()
+    auditStore.loadLogs()
+})
 
 // Helper para iconos de auditoría
 function getActionIcon(action: string): string {

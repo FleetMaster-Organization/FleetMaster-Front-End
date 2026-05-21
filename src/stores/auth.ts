@@ -6,6 +6,7 @@ import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
 import { useAssignmentsStore } from '@/stores/assignments'
 import { useUsersStore } from '@/stores/users'
+import { useAuditStore } from '@/stores/audit'
 
 export type UserRole = 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
 
@@ -101,7 +102,11 @@ export const useAuthStore = defineStore('auth', () => {
 
             if (user.value.role === 'admin') {
                 const usersStore = useUsersStore()
-                await usersStore.loadUsers()
+                const auditStore = useAuditStore()
+                await Promise.all([
+                    usersStore.loadUsers(),
+                    auditStore.loadLogs()
+                ])
             }
         } catch (e) {
             console.error('Error loading session data:', e)
