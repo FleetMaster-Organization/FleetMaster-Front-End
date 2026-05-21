@@ -42,22 +42,51 @@ export const useAlertsStore = defineStore('alerts', () => {
             const entType = (item.entityType === 'VEHICLE' || item.entityType === 'VEHICULO') ? 'vehiculo' : 'conductor'
             
             let name = 'Desconocido'
+            let vencimiento = '—'
+            let remainingDays = 0
+
             if (entType === 'vehiculo') {
                 const v = vehiclesStore.vehicles.find(x => x.id === item.entityId)
-                name = v ? v.placa : `Vehículo [${item.entityId.substring(0, 8)}]`
+                if (v) {
+                    name = v.placa
+                    const docTypeBackend = (item.documentType === 'TECNO' || item.documentType === 'TECNOMECANICA') ? 'TECNOMECANICA' : 'SOAT'
+                    const doc = v.documentos.find(d => d.tipo === docTypeBackend)
+                    if (doc && doc.fechaVencimiento) {
+                        vencimiento = doc.fechaVencimiento
+                    }
+                } else {
+                    name = `Vehículo [${item.entityId.substring(0, 8)}]`
+                }
             } else {
                 const d = driversStore.drivers.find(x => x.id === item.entityId)
-                name = d ? d.nombre : `Conductor [${item.entityId.substring(0, 8)}]`
+                if (d) {
+                    name = d.nombre
+                    const lic = d.licencias.find(l => l.id === item.documentId)
+                    if (lic && lic.fechaVencimiento) {
+                        vencimiento = lic.fechaVencimiento
+                    } else if (d.licencias.length > 0 && d.licencias[0]) {
+                        vencimiento = d.licencias[0].fechaVencimiento
+                    }
+                } else {
+                    name = `Conductor [${item.entityId.substring(0, 8)}]`
+                }
+            }
+
+            if (vencimiento !== '—') {
+                const todayMs = new Date().setHours(0, 0, 0, 0)
+                const expiryMs = new Date(vencimiento).getTime()
+                const diffTime = expiryMs - todayMs
+                remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
             }
 
             let docType: AlertDocType = 'SOAT'
             if (item.documentType === 'TECNO' || item.documentType === 'TECNOMECANICA') {
                 docType = 'Tecnomecánica'
-            } else if (item.documentType === 'LICENCIA' || item.documentType === 'LICENCIA_CONDUCCION') {
+            } else if (item.documentType === 'LICENCIA' || item.documentType === 'LICENCIA_CONDUCCION' || item.documentType === 'LICENSE') {
                 docType = 'Licencia de conducción'
             }
 
-            const sev: AlertSeverity = (item.criticality === 'CRITICAL' || item.criticality === 'VENCIDO' || item.daysUntilExpiration < 0) ? 'Vencido' : 'Por vencer'
+            const sev: AlertSeverity = (item.criticality === 'CRITICAL' || item.criticality === 'VENCIDO' || remainingDays < 0) ? 'Vencido' : 'Por vencer'
             const est: AlertStatus = (item.status === 'PENDIENTE' || item.status === 'PENDING') ? 'Pendiente' : 'Gestionada'
 
             return {
@@ -68,8 +97,8 @@ export const useAlertsStore = defineStore('alerts', () => {
                 entidadTipo: entType,
                 entidadId: item.entityId,
                 entidadNombre: name,
-                fechaVencimiento: item.expirationDate,
-                diasRestantes: item.daysUntilExpiration,
+                fechaVencimiento: vencimiento,
+                diasRestantes: remainingDays,
                 gestionadaEn: item.resolvedAt || null,
                 gestionadaPor: item.resolvedBy || null
             }
