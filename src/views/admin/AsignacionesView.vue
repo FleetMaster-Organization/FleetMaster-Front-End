@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useAssignmentsStore } from '@/stores/assignments'
 import { useVehiclesStore }    from '@/stores/vehicles'
 import { useDriversStore }     from '@/stores/drivers'
@@ -14,6 +14,14 @@ const vehiclesStore    = useVehiclesStore()
 const driversStore     = useDriversStore()
 const authStore        = useAuthStore()
 const currentUser      = computed(() => authStore.user?.name ?? 'Admin')
+
+onMounted(async () => {
+    await Promise.all([
+        assignmentsStore.loadAssignments(),
+        vehiclesStore.loadVehicles(),
+        driversStore.loadDrivers(),
+    ])
+})
 
 // ── Tabs ──────────────────────────────────────────────────────
 const activeTab = ref<'activas' | 'historial'>('activas')
