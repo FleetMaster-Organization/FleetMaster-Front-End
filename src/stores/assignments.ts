@@ -79,7 +79,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
     async function loadAssignments() {
         isLoading.value = true
         try {
-            const res = await api.get<any>('/assignments/api/asignaciones')
+            const res = await api.get<any>('/assignments/asignaciones')
             const backendList = res.data.data || []
 
             // Reset active assignment references first to avoid stale states
@@ -176,7 +176,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         try {
             const userId = authStore.user?.id || '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
-            await api.post('/assignments/api/asignaciones', {
+            await api.post('/assignments/asignaciones', {
                 vehicleId: vehicle.id,
                 driverId: driver.id,
                 userId: userId
@@ -220,7 +220,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         try {
             const userId = authStore.user?.id || '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
-            await api.patch(`/assignments/api/asignaciones/${id}/cerrar`, {
+            await api.patch(`/assignments/asignaciones/${id}/cerrar`, {
                 finalKm: data.kilometrajeFin,
                 userId: userId
             })
@@ -244,6 +244,32 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         }
     }
 
+    async function exportAssignments(formato: 'CSV' | 'XLSX'): Promise<{ success: boolean; error?: string }> {
+        try {
+            const res = await api.get('/assignments/asignaciones/export', {
+                params: { formato },
+                responseType: 'blob',
+            })
+            
+            const blob = new Blob([res.data], {
+                type: formato === 'XLSX' 
+                    ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                    : 'text/csv;charset=utf-8;'
+            })
+            
+            const link = document.createElement('a')
+            link.href = window.URL.createObjectURL(blob)
+            link.download = `asignaciones.${formato.toLowerCase()}`
+            link.click()
+            window.URL.revokeObjectURL(link.href)
+            
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error exporting assignments:', error)
+            return { success: false, error: 'Error al exportar asignaciones.' }
+        }
+    }
+
     return {
         assignments,
         activas,
@@ -254,6 +280,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         loadAssignments,
         createAssignment,
         closeAssignment,
+        exportAssignments,
         validateVehicleDocs,
         validateDriverLicense,
     }
