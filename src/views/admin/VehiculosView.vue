@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useAuthStore } from '@/stores/auth'
 import DataTable from '@/components/ui/DataTable.vue'
@@ -19,6 +19,10 @@ import type {
 const store   = useVehiclesStore()
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user?.name ?? 'Sistema')
+
+onMounted(() => {
+    store.loadVehicles()
+})
 
 // ─── Tipos para selects ──────────────────────────────────────
 const vehicleTypes: VehicleType[] = ['Camión', 'Van', 'Moto', 'Automóvil', 'Bus']

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useDriversStore } from '@/stores/drivers'
 import { useAuthStore } from '@/stores/auth'
 import DataTable from '@/components/ui/DataTable.vue'
@@ -19,6 +19,10 @@ import type {
 const store     = useDriversStore()
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user?.name ?? 'Sistema')
+
+onMounted(() => {
+    store.loadDrivers()
+})
 
 // ─── Catálogos ────────────────────────────────────────────────
 const licenseCategories: LicenseCategory[] = ['A1', 'A2', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3']

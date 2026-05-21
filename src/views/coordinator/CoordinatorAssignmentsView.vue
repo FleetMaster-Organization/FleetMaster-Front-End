@@ -209,13 +209,37 @@ function getDriverLabel(driver: Driver): string {
                 </p>
             </div>
 
-            <button
-                type="button"
-                class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-5 py-3 text-sm font-semibold transition"
-                @click="openCreateModal"
-            >
-                Nueva asignación
-            </button>
+            <div class="flex items-center gap-3">
+                <button
+                    type="button"
+                    class="flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-50
+                        text-slate-600 text-xs font-semibold rounded-xl transition shadow-sm"
+                    @click="assignmentsStore.exportAssignments('CSV')"
+                >
+                    <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    CSV
+                </button>
+                <button
+                    type="button"
+                    class="flex items-center gap-1.5 px-3 py-2 border border-emerald-200 hover:bg-emerald-50/50
+                        text-emerald-700 text-xs font-semibold rounded-xl transition shadow-sm"
+                    @click="assignmentsStore.exportAssignments('XLSX')"
+                >
+                    <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Excel
+                </button>
+                <button
+                    type="button"
+                    class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-5 py-3 text-sm font-semibold transition"
+                    @click="openCreateModal"
+                >
+                    Nueva asignación
+                </button>
+            </div>
         </div>
 
         <!-- ─── Stats cards ────────────────────────────────── -->
