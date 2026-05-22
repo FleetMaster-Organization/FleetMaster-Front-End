@@ -78,7 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
     // ── Acciones ─────────────────────────────────────────────
 
     function mapRole(backendRoles: string[]): UserRole {
-        if (backendRoles.includes('ROLE_ADMINISTRADOR')) return 'admin'
+        if (backendRoles.includes(' npm')) return 'admin'
         if (backendRoles.includes('ROLE_COORDINADOR') || backendRoles.includes('ROLE_COORDINADOR_FLOTA')) return 'coordinator'
         if (backendRoles.includes('ROLE_MECANICO')) return 'mechanic'
         if (backendRoles.includes('ROLE_DESPACHADOR')) return 'dispatcher'
