@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
+import { useAssignmentsStore } from '@/stores/assignments'
 import { useAlertsStore } from '@/stores/alerts'
-import { useAuditStore } from '@/stores/audit'
 import StatCard from '@/components/dashboard/StatCard.vue'
 import VehicleStatBar from '@/components/dashboard/VehicleStatBar.vue'
 import AlertCard from '@/components/dashboard/AlertCard.vue'
@@ -12,8 +12,17 @@ import type { StatCardData, VehicleStatData, Alert, ActivityItem } from '@/types
 
 const vehiclesStore = useVehiclesStore()
 const driversStore = useDriversStore()
+const assignmentsStore = useAssignmentsStore()
 const alertsStore = useAlertsStore()
-const auditStore = useAuditStore()
+
+onMounted(async () => {
+    await Promise.all([
+        vehiclesStore.loadVehicles(),
+        driversStore.loadDrivers(),
+        assignmentsStore.loadAssignments(),
+        alertsStore.loadAlerts(),
+    ])
+})
 
 // Helper para iconos de auditoría
 function getActionIcon(action: string): string {
@@ -108,14 +117,17 @@ const alerts = computed<Alert[]>(() => {
 
 // ─── Activity data dinámicos ────────────────────────────────────
 const activities = computed<ActivityItem[]>(() => {
-    return auditStore.logs.slice(0, 4).map(log => ({
-        id: log.id,
-        title: log.accion.replace(/_/g, ' '),
-        description: log.detalle,
-        actor: log.usuario,
-        timeAgo: formatTimeAgo(log.fecha),
-        icon: getActionIcon(log.accion),
-    }))
+    return assignmentsStore.assignments.slice(0, 4).map(asg => {
+        const isClosed = asg.estado === 'Finalizada'
+        return {
+            id: asg.id,
+            title: isClosed ? 'Asignación Finalizada' : 'Nueva Asignación de Vehículo',
+            description: `Vehículo ${asg.vehiculoPlaca} asignado al conductor ${asg.conductorNombre}.`,
+            actor: asg.usuarioResponsable || 'Coordinador',
+            timeAgo: formatTimeAgo(asg.fechaInicio || new Date().toISOString()),
+            icon: '📋',
+        }
+    })
 })
 
 </script>
@@ -168,7 +180,7 @@ const activities = computed<ActivityItem[]>(() => {
                 <p class="text-xs text-gray-400 mt-0.5">Últimas acciones en el sistema</p>
             </div>
             <RouterLink
-                to="/admin/auditoria"
+                to="/admin/asignaciones"
                 class="text-xs font-semibold text-blue-600 hover:text-blue-700"
             >
                 Ver historial →

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAlertsStore } from '@/stores/alerts'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import SearchBar   from '@/components/ui/SearchBar.vue'
@@ -7,6 +7,10 @@ import DataTable   from '@/components/ui/DataTable.vue'
 import type { SystemAlert } from '@/types'
 
 const alertsStore = useAlertsStore()
+
+onMounted(async () => {
+    await alertsStore.loadAlerts()
+})
 
 const activeTab = ref<'pendientes' | 'gestionadas'>('pendientes')
 const search    = ref('')

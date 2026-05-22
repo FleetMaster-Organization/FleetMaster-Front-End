@@ -48,12 +48,6 @@ const router = createRouter({
           meta: { requiresAuth: true, role: 'admin' as UserRole },
         },
         {
-          path: '/admin/auditoria',
-          name: 'admin-auditoria',
-          component: () => import('@/views/admin/AuditoriaView.vue'),
-          meta: { requiresAuth: true, role: 'admin' as UserRole },
-        },
-        {
           path: '/admin/usuarios',
           name: 'admin-usuarios',
           component: () => import('@/views/admin/UsuariosView.vue'),
@@ -78,6 +72,26 @@ const router = createRouter({
           name: 'coordinator-dashboard',
           component: () => import('@/views/coordinator/CoordinatorDashboardView.vue'),
         },
+        {
+          path: 'vehiculos',
+          name: 'coordinator-vehiculos',
+          component: () => import('@/views/coordinator/CoordinatorVehiclesView.vue'),
+        },
+        {
+          path: 'conductores',
+          name: 'coordinator-conductores',
+          component: () => import('@/views/coordinator/CoordinatorDriversView.vue'),
+        },
+        {
+          path: 'asignaciones',
+          name: 'coordinator-asignaciones',
+          component: () => import('@/views/coordinator/CoordinatorAssignmentsView.vue'),
+        },
+        {
+          path: 'alertas',
+          name: 'coordinator-alertas',
+          component: () => import('@/views/coordinator/CoordinatorAlertsView.vue'),
+        },
       ],
     },
 
@@ -91,6 +105,16 @@ const router = createRouter({
           path: 'dashboard',
           name: 'mechanic-dashboard',
           component: () => import('@/views/mechanic/MechanicDashboardView.vue'),
+        },
+        {
+          path: 'mantenimiento',
+          name: 'mechanic-mantenimiento',
+          component: () => import('@/views/mechanic/MechanicMaintenanceView.vue'),
+        },
+        {
+          path: 'historial',
+          name: 'mechanic-historial',
+          component: () => import('@/views/mechanic/MechanicHistoryView.vue'),
         },
       ],
     },

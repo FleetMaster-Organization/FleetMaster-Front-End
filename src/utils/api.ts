@@ -13,8 +13,13 @@ export const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token')
-        if (token && config.headers) {
-            config.headers.Authorization = `Bearer ${token}`
+        if (token) {
+            config.headers = config.headers || {}
+            if (typeof config.headers.set === 'function') {
+                config.headers.set('Authorization', `Bearer ${token}`)
+            } else {
+                config.headers.Authorization = `Bearer ${token}`
+            }
         }
         return config
     },
@@ -40,11 +45,11 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config
         if (error.response?.status === 401 && !originalRequest._retry) {
-            if (originalRequest.url?.includes('/auth/refresh')) {
+            if (originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/login')) {
                 localStorage.removeItem('token')
                 localStorage.removeItem('refreshToken')
                 localStorage.removeItem('user')
-                if (!window.location.pathname.includes('/login')) {
+                if (!window.location.pathname.includes('/login') && originalRequest.url?.includes('/auth/refresh')) {
                     window.location.href = '/login?reason=session_expired'
                 }
                 return Promise.reject(error)
@@ -88,7 +93,12 @@ api.interceptors.response.use(
 
                 return new Promise((resolve) => {
                     subscribeTokenRefresh((token) => {
-                        originalRequest.headers.Authorization = `Bearer ${token}`
+                        originalRequest.headers = originalRequest.headers || {}
+                        if (typeof originalRequest.headers.set === 'function') {
+                            originalRequest.headers.set('Authorization', `Bearer ${token}`)
+                        } else {
+                            originalRequest.headers.Authorization = `Bearer ${token}`
+                        }
                         resolve(api(originalRequest))
                     })
                 })

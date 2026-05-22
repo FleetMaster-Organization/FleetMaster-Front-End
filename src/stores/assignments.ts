@@ -2,26 +2,26 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Assignment, AssignmentFormData, AssignmentCloseData } from '@/types'
 import { useVehiclesStore } from '@/stores/vehicles'
-import { useDriversStore }  from '@/stores/drivers'
-import { useAuditStore }    from '@/stores/audit'
-import { useAuthStore }     from '@/stores/auth'
-import { api }              from '@/utils/api'
+import { useDriversStore } from '@/stores/drivers'
+import { useAuditStore } from '@/stores/audit'
+import { useAuthStore } from '@/stores/auth'
+import { api } from '@/utils/api'
 
 export const useAssignmentsStore = defineStore('assignments', () => {
     const vehiclesStore = useVehiclesStore()
-    const driversStore  = useDriversStore()
-    const auditStore    = useAuditStore()
-    const authStore     = useAuthStore()
+    const driversStore = useDriversStore()
+    const auditStore = useAuditStore()
+    const authStore = useAuthStore()
 
     // ── Estado ────────────────────────────────────────────────
     const assignments = ref<Assignment[]>([])
     const isLoading = ref(false)
 
     // ── Getters ───────────────────────────────────────────────
-    const activas   = computed(() => assignments.value.filter(a => a.estado === 'Activa'))
+    const activas = computed(() => assignments.value.filter(a => a.estado === 'Activa'))
     const historial = computed(() => assignments.value.filter(a => a.estado === 'Finalizada'))
 
-    const porVehiculo  = (vehiculoId: string)  =>
+    const porVehiculo = (vehiculoId: string) =>
         computed(() => assignments.value.filter(a => a.vehiculoId === vehiculoId))
     const porConductor = (conductorId: string) =>
         computed(() => assignments.value.filter(a => a.conductorId === conductorId))
@@ -37,7 +37,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         const vehicle = vehiclesStore.vehicles.find(v => v.id === vehiculoId)
         if (!vehicle) return 'Vehículo no encontrado.'
 
-        const soat  = vehicle.documentos.find(d => d.tipo === 'SOAT')
+        const soat = vehicle.documentos.find(d => d.tipo === 'SOAT')
         const tecno = vehicle.documentos.find(d => d.tipo === 'TECNOMECANICA')
 
         if (!soat)
@@ -79,37 +79,53 @@ export const useAssignmentsStore = defineStore('assignments', () => {
     async function loadAssignments() {
         isLoading.value = true
         try {
-            const allAssignments: Assignment[] = []
+            const res = await api.get<any>('/assignments/asignaciones')
+            const backendList = res.data.data || []
 
-            await Promise.all(vehiclesStore.vehicles.map(async (v) => {
-                try {
-                    const res = await api.get<any>(`/assignments/api/vehiculos/${v.id}/historial`)
-                    const history = res.data.data || []
+            // Reset active assignment references first to avoid stale states
+            vehiclesStore.vehicles.forEach(v => {
+                v.conductorAsignadoId = null
+                v.conductorAsignadoNombre = null
+            })
+            driversStore.drivers.forEach(d => {
+                d.vehiculoAsignadoId = null
+                d.vehiculoAsignadoPlaca = null
+            })
 
-                    history.forEach((item: any) => {
-                        const isCurrentActive = v.estadoOperativo === 'En ruta' && v.conductorAsignadoNombre === item.conductor
+            const allAssignments: Assignment[] = backendList.map((item: any) => {
+                const vehicle = vehiclesStore.vehicles.find(v => v.id === item.vehicleId)
+                const driver = driversStore.drivers.find(d => d.id === item.driverId)
 
-                        allAssignments.push({
-                            id: item.id,
-                            vehiculoId: v.id,
-                            vehiculoPlaca: v.placa,
-                            vehiculoMarca: v.marca,
-                            vehiculoModelo: v.modelo,
-                            conductorId: v.conductorAsignadoId || '',
-                            conductorNombre: item.conductor,
-                            conductorCedula: '',
-                            fechaInicio: item.date,
-                            fechaFin: isCurrentActive ? null : item.date,
-                            kilometrajeInicio: item.km,
-                            kilometrajeFin: isCurrentActive ? null : item.km,
-                            usuarioResponsable: 'Admin',
-                            estado: isCurrentActive ? 'Activa' : 'Finalizada'
-                        })
-                    })
-                } catch (e) {
-                    console.error(`Error loading history for vehicle ${v.placa}:`, e)
+                const isActiva = !item.endDate
+
+                if (isActiva) {
+                    if (vehicle) {
+                        vehicle.conductorAsignadoId = item.driverId
+                        vehicle.conductorAsignadoNombre = item.driverName
+                    }
+                    if (driver) {
+                        driver.vehiculoAsignadoId = item.vehicleId
+                        driver.vehiculoAsignadoPlaca = item.vehiclePlate
+                    }
                 }
-            }))
+
+                return {
+                    id: item.id,
+                    vehiculoId: item.vehicleId,
+                    vehiculoPlaca: item.vehiclePlate,
+                    vehiculoMarca: vehicle?.marca || 'Desconocida',
+                    vehiculoModelo: vehicle?.modelo || '',
+                    conductorId: item.driverId,
+                    conductorNombre: item.driverName,
+                    conductorCedula: driver?.cedula || '',
+                    fechaInicio: item.startDate,
+                    fechaFin: item.endDate,
+                    kilometrajeInicio: item.initialKm,
+                    kilometrajeFin: item.finalKm,
+                    usuarioResponsable: 'Admin',
+                    estado: isActiva ? 'Activa' : 'Finalizada'
+                }
+            })
 
             assignments.value = allAssignments.sort((a, b) => new Date(b.fechaInicio).getTime() - new Date(a.fechaInicio).getTime())
         } catch (error) {
@@ -123,10 +139,10 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         data: AssignmentFormData,
     ): Promise<{ success: boolean; error?: string }> {
         const vehicle = vehiclesStore.vehicles.find(v => v.id === data.vehiculoId)
-        const driver  = driversStore.drivers.find(d => d.id === data.conductorId)
+        const driver = driversStore.drivers.find(d => d.id === data.conductorId)
 
         if (!vehicle) return { success: false, error: 'Vehículo no encontrado.' }
-        if (!driver)  return { success: false, error: 'Conductor no encontrado.' }
+        if (!driver) return { success: false, error: 'Conductor no encontrado.' }
 
         // REQ-22: vehículo debe estar Disponible (estadoOperativo)
         if (vehicle.estadoOperativo !== 'Disponible')
@@ -160,7 +176,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         try {
             const userId = authStore.user?.id || '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
-            await api.post('/assignments/api/asignaciones', {
+            await api.post('/assignments/asignaciones', {
                 vehicleId: vehicle.id,
                 driverId: driver.id,
                 userId: userId
@@ -204,7 +220,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         try {
             const userId = authStore.user?.id || '3fa85f64-5717-4562-b3fc-2c963f66afa6'
 
-            await api.patch(`/assignments/api/asignaciones/${id}/cerrar`, {
+            await api.patch(`/assignments/asignaciones/${id}/cerrar`, {
                 finalKm: data.kilometrajeFin,
                 userId: userId
             })
@@ -228,6 +244,32 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         }
     }
 
+    async function exportAssignments(formato: 'CSV' | 'XLSX'): Promise<{ success: boolean; error?: string }> {
+        try {
+            const res = await api.get('/assignments/asignaciones/export', {
+                params: { formato },
+                responseType: 'blob',
+            })
+            
+            const blob = new Blob([res.data], {
+                type: formato === 'XLSX' 
+                    ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+                    : 'text/csv;charset=utf-8;'
+            })
+            
+            const link = document.createElement('a')
+            link.href = window.URL.createObjectURL(blob)
+            link.download = `asignaciones.${formato.toLowerCase()}`
+            link.click()
+            window.URL.revokeObjectURL(link.href)
+            
+            return { success: true }
+        } catch (error: any) {
+            console.error('Error exporting assignments:', error)
+            return { success: false, error: 'Error al exportar asignaciones.' }
+        }
+    }
+
     return {
         assignments,
         activas,
@@ -238,6 +280,7 @@ export const useAssignmentsStore = defineStore('assignments', () => {
         loadAssignments,
         createAssignment,
         closeAssignment,
+        exportAssignments,
         validateVehicleDocs,
         validateDriverLicense,
     }

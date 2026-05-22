@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useAssignmentsStore } from '@/stores/assignments'
 import { useVehiclesStore }    from '@/stores/vehicles'
 import { useDriversStore }     from '@/stores/drivers'
@@ -14,6 +14,14 @@ const vehiclesStore    = useVehiclesStore()
 const driversStore     = useDriversStore()
 const authStore        = useAuthStore()
 const currentUser      = computed(() => authStore.user?.name ?? 'Admin')
+
+onMounted(async () => {
+    await Promise.all([
+        assignmentsStore.loadAssignments(),
+        vehiclesStore.loadVehicles(),
+        driversStore.loadDrivers(),
+    ])
+})
 
 // ── Tabs ──────────────────────────────────────────────────────
 const activeTab = ref<'activas' | 'historial'>('activas')
@@ -257,16 +265,38 @@ const kmMinimoActual = computed(() => {
                     {{ assignmentsStore.historial.length }} en historial
                 </p>
             </div>
-            <button
-                class="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700
-                    text-white text-sm font-medium rounded-xl transition-colors shadow-sm"
-                @click="openCreate"
-            >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-                </svg>
-                Nueva asignación
-            </button>
+            <div class="flex items-center gap-3">
+                <button
+                    class="flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-50
+                        text-slate-600 text-xs font-semibold rounded-xl transition-colors shadow-sm"
+                    @click="assignmentsStore.exportAssignments('CSV')"
+                >
+                    <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    CSV
+                </button>
+                <button
+                    class="flex items-center gap-1.5 px-3 py-2 border border-emerald-200 hover:bg-emerald-50/50
+                        text-emerald-700 text-xs font-semibold rounded-xl transition-colors shadow-sm"
+                    @click="assignmentsStore.exportAssignments('XLSX')"
+                >
+                    <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Excel
+                </button>
+                <button
+                    class="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700
+                        text-white text-sm font-medium rounded-xl transition-colors shadow-sm"
+                    @click="openCreate"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Nueva asignación
+                </button>
+            </div>
         </div>
 
         <!-- ─── Tabs ─────────────────────────────────────────────── -->

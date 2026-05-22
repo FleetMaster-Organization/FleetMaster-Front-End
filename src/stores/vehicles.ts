@@ -100,8 +100,8 @@ export const useVehiclesStore = defineStore('vehicles', () => {
 
     function mapOperationalStatus(backend: string): VehicleOperationalStatus {
         const b = backend.toUpperCase()
-        if (b === 'DISPONIBLE') return 'Disponible'
-        if (b === 'EN_RUTA') return 'En ruta'
+        if (b === 'DISPONIBLE' || b === 'ACTIVO') return 'Disponible'
+        if (b === 'EN_RUTA' || b === 'ASIGNADO') return 'En ruta'
         if (b === 'EN_MANTENIMIENTO') return 'En mantenimiento'
         return 'Disponible'
     }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useDriversStore } from '@/stores/drivers'
 import { useAuthStore } from '@/stores/auth'
 import DataTable from '@/components/ui/DataTable.vue'
@@ -19,6 +19,10 @@ import type {
 const store     = useDriversStore()
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user?.name ?? 'Sistema')
+
+onMounted(() => {
+    store.loadDrivers()
+})
 
 // ─── Catálogos ────────────────────────────────────────────────
 const licenseCategories: LicenseCategory[] = ['A1', 'A2', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3']
@@ -192,17 +196,76 @@ function removeContact(i: number) {
 
 async function submitCreate() {
     createError.value = ''
-    if (!createForm.nombre || !createForm.cedula) {
-        createError.value = 'Nombre y cédula son obligatorios.'
+    if (!createForm.nombre || !createForm.cedula || !createForm.telefono) {
+        createError.value = 'Nombre, cédula y teléfono son obligatorios.'
         return
     }
-    if (createForm.licencias.some(l => !l.fechaExpedicion || !l.fechaVencimiento)) {
-        createError.value = 'Completa las fechas de todas las licencias.'
+
+    if (createForm.cedula.length > 20) {
+        createError.value = 'La cédula no puede superar los 20 caracteres.'
         return
     }
-    if (createForm.contactosEmergencia.some(c => !c.nombre || !c.telefono)) {
-        createError.value = 'Completa nombre y teléfono de todos los contactos de emergencia.'
+    
+    const names = createForm.nombre.trim().split(' ')
+    const firstName = names[0] || ''
+    const lastName = names.slice(1).join(' ') || 'Sin Apellido'
+    if (firstName.length > 50 || lastName.length > 50) {
+        createError.value = 'El nombre o apellido no pueden superar los 50 caracteres.'
         return
+    }
+
+    if (createForm.telefono.length > 10) {
+        createError.value = 'El teléfono no puede superar los 10 caracteres.'
+        return
+    }
+
+    if (createForm.email && !createForm.email.includes('@')) {
+        createError.value = 'El correo electrónico no es válido.'
+        return
+    }
+
+    if (createForm.licencias.length === 0) {
+        createError.value = 'Se requiere al menos una categoría de licencia.'
+        return
+    }
+
+    const today = new Date().toISOString().split('T')[0] || ''
+    for (const l of createForm.licencias) {
+        if (!l.fechaExpedicion || !l.fechaVencimiento) {
+            createError.value = 'Completa las fechas de todas las licencias.'
+            return
+        }
+        if (l.fechaExpedicion > today) {
+            createError.value = 'La fecha de expedición de la licencia no puede ser futura.'
+            return
+        }
+        if (l.fechaVencimiento <= today) {
+            createError.value = 'La fecha de vencimiento de la licencia debe ser futura al registrar.'
+            return
+        }
+    }
+
+    if (createForm.contactosEmergencia.length === 0) {
+        createError.value = 'El contacto de emergencia es obligatorio.'
+        return
+    }
+    for (const c of createForm.contactosEmergencia) {
+        if (!c.nombre || !c.telefono || !c.relacion) {
+            createError.value = 'Completa nombre, teléfono y parentesco de todos los contactos de emergencia.'
+            return
+        }
+        if (c.nombre.length > 100) {
+            createError.value = 'El nombre del contacto no puede superar los 100 caracteres.'
+            return
+        }
+        if (c.telefono.length > 10) {
+            createError.value = 'El teléfono del contacto no puede superar los 10 caracteres.'
+            return
+        }
+        if (c.relacion.length > 45) {
+            createError.value = 'El parentesco no puede superar los 45 caracteres.'
+            return
+        }
     }
 
     const payload: DriverFormData = {
@@ -298,17 +361,67 @@ function removeEditContact(i: number) {
 async function submitEdit() {
     editError.value = ''
     if (!editingDriver.value) return
-    if (!editForm.nombre) {
-        editError.value = 'El nombre es obligatorio.'
+    if (!editForm.nombre || !editForm.telefono) {
+        editError.value = 'El nombre y teléfono son obligatorios.'
         return
     }
-    if (editForm.licencias.some(l => !l.fechaExpedicion || !l.fechaVencimiento)) {
-        editError.value = 'Completa las fechas de todas las licencias.'
+
+    const names = editForm.nombre.trim().split(' ')
+    const firstName = names[0] || ''
+    const lastName = names.slice(1).join(' ') || 'Sin Apellido'
+    if (firstName.length > 50 || lastName.length > 50) {
+        editError.value = 'El nombre o apellido no pueden superar los 50 caracteres.'
         return
     }
-    if (editForm.contactosEmergencia.some(c => !c.nombre || !c.telefono)) {
-        editError.value = 'Completa nombre y teléfono de todos los contactos de emergencia.'
+
+    if (editForm.telefono.length > 10) {
+        editError.value = 'El teléfono no puede superar los 10 caracteres.'
         return
+    }
+
+    if (editForm.email && !editForm.email.includes('@')) {
+        editError.value = 'El correo electrónico no es válido.'
+        return
+    }
+
+    if (editForm.licencias.length === 0) {
+        editError.value = 'Se requiere al menos una categoría de licencia.'
+        return
+    }
+
+    const today = new Date().toISOString().split('T')[0] || ''
+    for (const l of editForm.licencias) {
+        if (!l.fechaExpedicion || !l.fechaVencimiento) {
+            editError.value = 'Completa las fechas de todas las licencias.'
+            return
+        }
+        if (l.fechaExpedicion > today) {
+            editError.value = 'La fecha de expedición de la licencia no puede ser futura.'
+            return
+        }
+    }
+
+    if (editForm.contactosEmergencia.length === 0) {
+        editError.value = 'El contacto de emergencia es obligatorio.'
+        return
+    }
+    for (const c of editForm.contactosEmergencia) {
+        if (!c.nombre || !c.telefono || !c.relacion) {
+            editError.value = 'Completa nombre, teléfono y parentesco de todos los contactos de emergencia.'
+            return
+        }
+        if (c.nombre.length > 100) {
+            editError.value = 'El nombre del contacto no puede superar los 100 caracteres.'
+            return
+        }
+        if (c.telefono.length > 10) {
+            editError.value = 'El teléfono del contacto no puede superar los 10 caracteres.'
+            return
+        }
+        if (c.relacion.length > 45) {
+            editError.value = 'El parentesco no puede superar los 45 caracteres.'
+            return
+        }
     }
 
     const payload: DriverEditFormData = {

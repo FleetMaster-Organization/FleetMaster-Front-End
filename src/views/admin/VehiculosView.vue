@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useAuthStore } from '@/stores/auth'
 import DataTable from '@/components/ui/DataTable.vue'
@@ -19,6 +19,10 @@ import type {
 const store   = useVehiclesStore()
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.user?.name ?? 'Sistema')
+
+onMounted(() => {
+    store.loadVehicles()
+})
 
 // ─── Tipos para selects ──────────────────────────────────────
 const vehicleTypes: VehicleType[] = ['Camión', 'Van', 'Moto', 'Automóvil', 'Bus']
@@ -165,8 +169,9 @@ async function submitCreate() {
     }
 
     const vinClean = createForm.vin.replace(/\s/g, '').toUpperCase()
-    if (vinClean.length !== 17) {
-        createError.value = 'El VIN debe tener exactamente 17 caracteres.'
+    const vinRegex = /^[A-HJ-NPR-Z0-9]{17}$/
+    if (!vinRegex.test(vinClean)) {
+        createError.value = 'El VIN debe tener exactamente 17 caracteres alfanuméricos válidos (sin I, O, Q).'
         return
     }
 
@@ -190,6 +195,36 @@ async function submitCreate() {
     }
     if (!createForm.tecnomecanica.fechaVencimiento || !createForm.tecnomecanica.fechaExpedicion) {
         createError.value = 'Ingresa las fechas de la Tecnomecánica.'
+        return
+    }
+
+    const today = new Date().toISOString().split('T')[0] || ''
+
+    // SOAT
+    if (createForm.soat.fechaExpedicion > today) {
+        createError.value = 'La fecha de expedición del SOAT no puede ser futura.'
+        return
+    }
+    if (createForm.soat.fechaVencimiento <= today) {
+        createError.value = 'El SOAT se encuentra vencido o próximo a vencer. La fecha de vencimiento debe ser futura al registrar.'
+        return
+    }
+    if (createForm.soat.fechaVencimiento < createForm.soat.fechaExpedicion) {
+        createError.value = 'La fecha de vencimiento del SOAT no puede ser anterior a la de expedición.'
+        return
+    }
+
+    // Tecnomecánica
+    if (createForm.tecnomecanica.fechaExpedicion > today) {
+        createError.value = 'La fecha de expedición de la Tecnomecánica no puede ser futura.'
+        return
+    }
+    if (createForm.tecnomecanica.fechaVencimiento <= today) {
+        createError.value = 'La Tecnomecánica se encuentra vencida o próxima a vencer. La fecha de vencimiento debe ser futura al registrar.'
+        return
+    }
+    if (createForm.tecnomecanica.fechaVencimiento < createForm.tecnomecanica.fechaExpedicion) {
+        createError.value = 'La fecha de vencimiento de la Tecnomecánica no puede ser anterior a la de expedición.'
         return
     }
 
@@ -256,6 +291,26 @@ async function submitEdit() {
     }
     if (!editForm.tecnomecanica.fechaVencimiento || !editForm.tecnomecanica.fechaExpedicion) {
         editError.value = 'Ingresa las fechas de la Tecnomecánica.'
+        return
+    }
+
+    const today = new Date().toISOString().split('T')[0] || ''
+
+    if (editForm.soat.fechaExpedicion > today) {
+        editError.value = 'La fecha de expedición del SOAT no puede ser futura.'
+        return
+    }
+    if (editForm.soat.fechaVencimiento < editForm.soat.fechaExpedicion) {
+        editError.value = 'La fecha de vencimiento del SOAT no puede ser anterior a la de expedición.'
+        return
+    }
+
+    if (editForm.tecnomecanica.fechaExpedicion > today) {
+        editError.value = 'La fecha de expedición de la Tecnomecánica no puede ser futura.'
+        return
+    }
+    if (editForm.tecnomecanica.fechaVencimiento < editForm.tecnomecanica.fechaExpedicion) {
+        editError.value = 'La fecha de vencimiento de la Tecnomecánica no puede ser anterior a la de expedición.'
         return
     }
 

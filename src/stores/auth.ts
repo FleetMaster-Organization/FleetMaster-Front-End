@@ -5,6 +5,9 @@ import { api } from '@/utils/api'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
 import { useAssignmentsStore } from '@/stores/assignments'
+import { useUsersStore } from '@/stores/users'
+import { useAuditStore } from '@/stores/audit'
+import { useMaintenanceStore } from '@/stores/maintenance'
 
 export type UserRole = 'admin' | 'coordinator' | 'mechanic' | 'dispatcher'
 
@@ -39,6 +42,7 @@ const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
 export const useAuthStore = defineStore('auth', () => {
     const user  = ref<User | null>(null)
     const token = ref<string | null>(localStorage.getItem('token'))
+    const isBootstrapping = ref(false)
 
     // ── Temporizador de inactividad ──────────────────────────
     let inactivityTimer: ReturnType<typeof setTimeout> | null = null
@@ -65,6 +69,42 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    // ── Temporizador de refresco automático de token ──────────
+    let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null
+
+    function startTokenRefreshTimer() {
+        if (tokenRefreshInterval !== null) clearInterval(tokenRefreshInterval)
+        // Refrescar cada 4 minutos para evitar la expiración del token y los 401
+        tokenRefreshInterval = setInterval(async () => {
+            const rt = localStorage.getItem('refreshToken')
+            if (rt && token.value) {
+                try {
+                    const response = await api.post<{
+                        accessToken: string
+                        refreshToken: string
+                    }>('/auth/refresh', {}, {
+                        headers: {
+                            'Refresh-Token': rt
+                        }
+                    })
+                    const data = response.data
+                    token.value = data.accessToken
+                    localStorage.setItem('token', data.accessToken)
+                    localStorage.setItem('refreshToken', data.refreshToken)
+                } catch (e) {
+                    console.error('Error en refresco automático de token:', e)
+                }
+            }
+        }, 4 * 60 * 1000)
+    }
+
+    function stopTokenRefreshTimer() {
+        if (tokenRefreshInterval !== null) {
+            clearInterval(tokenRefreshInterval)
+            tokenRefreshInterval = null
+        }
+    }
+
     // ── Computed ─────────────────────────────────────────────
     const isAuthenticated = computed(() => !!token.value && !!user.value)
     const userRole        = computed(() => user.value?.role ?? null)
@@ -82,7 +122,58 @@ export const useAuthStore = defineStore('auth', () => {
         return 'dispatcher'
     }
 
+    async function bootstrapSessionData() {
+        if (!user.value || isBootstrapping.value) return
+
+        isBootstrapping.value = true
+        try {
+            const vehiclesStore = useVehiclesStore()
+            const driversStore = useDriversStore()
+            const assignmentsStore = useAssignmentsStore()
+            const maintenanceStore = useMaintenanceStore()
+
+            // 1. Vehicles: loaded by everyone (all roles have permission)
+            await vehiclesStore.loadVehicles()
+
+            // 2. Drivers and Assignments: loaded by admin, coordinator, dispatcher
+            const hasAccessToDriversAndAssignments = ['admin', 'coordinator', 'dispatcher'].includes(user.value.role)
+            if (hasAccessToDriversAndAssignments) {
+                await Promise.all([
+                    driversStore.loadDrivers(),
+                    assignmentsStore.loadAssignments()
+                ])
+            }
+
+            // 3. Maintenances: loaded by admin and mechanic
+            const hasAccessToMaintenance = ['admin', 'mechanic'].includes(user.value.role)
+            if (hasAccessToMaintenance) {
+                await maintenanceStore.loadMaintenances()
+            }
+
+            // 4. Admin-only: users and logs
+            if (user.value.role === 'admin') {
+                const usersStore = useUsersStore()
+                const auditStore = useAuditStore()
+                await Promise.all([
+                    usersStore.loadUsers(),
+                    auditStore.loadLogs()
+                ])
+            }
+        } catch (e) {
+            console.error('Error loading session data:', e)
+        } finally {
+            isBootstrapping.value = false
+        }
+    }
+
     async function login(credentials: { email: string; password: string }): Promise<void> {
+        // Clear any old/existing session to prevent stale states on failed logins
+        user.value = null
+        token.value = null
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('user')
+
         const response = await api.post<{
             accessToken: string
             refreshToken: string
@@ -107,20 +198,10 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('refreshToken', data.refreshToken)
         localStorage.setItem('user', JSON.stringify(loggedUser))
 
-        // Trigger background loads of other stores on login
-        try {
-            const vehiclesStore = useVehiclesStore()
-            const driversStore = useDriversStore()
-            const assignmentsStore = useAssignmentsStore()
-            vehiclesStore.loadVehicles()
-            driversStore.loadDrivers()
-            assignmentsStore.loadAssignments()
-        } catch (e) {
-            console.error('Error in background store initialization:', e)
-        }
-
         startInactivityWatcher()
-        router.push(ROLE_REDIRECT[role])
+        startTokenRefreshTimer()
+        await bootstrapSessionData()
+        await router.push(ROLE_REDIRECT[role])
     }
 
     async function logout(dueToInactivity = false) {
@@ -138,6 +219,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
 
         stopInactivityWatcher()
+        stopTokenRefreshTimer()
 
         user.value  = null
         token.value = null
@@ -155,19 +237,12 @@ export const useAuthStore = defineStore('auth', () => {
     function restoreSession() {
         const stored = localStorage.getItem('user')
         if (stored && token.value) {
-            user.value = JSON.parse(stored)
-            startInactivityWatcher()
+            if (!user.value) {
+                user.value = JSON.parse(stored)
+                startInactivityWatcher()
+                startTokenRefreshTimer()
 
-            // Trigger background loads of other stores on restoreSession
-            try {
-                const vehiclesStore = useVehiclesStore()
-                const driversStore = useDriversStore()
-                const assignmentsStore = useAssignmentsStore()
-                vehiclesStore.loadVehicles()
-                driversStore.loadDrivers()
-                assignmentsStore.loadAssignments()
-            } catch (e) {
-                console.error('Error in background store restore:', e)
+                void bootstrapSessionData()
             }
         }
     }
@@ -175,11 +250,13 @@ export const useAuthStore = defineStore('auth', () => {
     return {
         user,
         token,
+        isBootstrapping,
         isAuthenticated,
         userRole,
         dashboardRoute,
         login,
         logout,
         restoreSession,
+        bootstrapSessionData,
     }
 })

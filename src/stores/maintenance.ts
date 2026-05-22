@@ -11,41 +11,7 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
     const vehiclesStore    = useVehiclesStore()
     const assignmentsStore = useAssignmentsStore()
 
-    // ── Estado ────────────────────────────────────────────────
-    const records = ref<MaintenanceRecord[]>([
-        {
-            id: 'm001', vehiculoId: 'v1', vehiculoPlaca: 'ABC-123',
-            vehiculoMarca: 'Chevrolet', vehiculoModelo: 'NPR',
-            tipo: 'Correctivo',
-            descripcion: 'Falla en sistema de frenos — cambio de pastillas y discos',
-            fechaIngreso: '2025-04-25', fechaSalida: null,
-            kilometrajeIngreso: 45000, kilometrajeSalida: null,
-            costo: 850000, comentariosCierre: null,
-            proximoMantenimiento: null, estado: 'Abierto', tecnico: 'Técnico Juan',
-        },
-        {
-            id: 'm002', vehiculoId: 'v_hist_2', vehiculoPlaca: 'PQR-901',
-            vehiculoMarca: 'Kenworth', vehiculoModelo: 'T680',
-            tipo: 'Preventivo',
-            descripcion: 'Cambio de aceite y filtros — mantenimiento programado 240k km',
-            fechaIngreso: '2025-04-20', fechaSalida: '2025-04-21',
-            kilometrajeIngreso: 239800, kilometrajeSalida: 239800,
-            costo: 1200000,
-            comentariosCierre: 'Aceite y filtros reemplazados. Próximo a los 300k km.',
-            proximoMantenimiento: '2025-10-20', estado: 'Cerrado', tecnico: 'Técnico Ramírez',
-        },
-        {
-            id: 'm003', vehiculoId: 'v_hist_3', vehiculoPlaca: 'MNO-678',
-            vehiculoMarca: 'Mercedes-Benz', vehiculoModelo: 'Sprinter',
-            tipo: 'Preventivo',
-            descripcion: 'Cambio de correa de distribución y bomba de agua',
-            fechaIngreso: '2025-01-08', fechaSalida: '2025-01-09',
-            kilometrajeIngreso: 62000, kilometrajeSalida: 62000,
-            costo: 1850000,
-            comentariosCierre: 'Trabajo completado sin inconvenientes.',
-            proximoMantenimiento: '2025-07-08', estado: 'Cerrado', tecnico: 'Técnico Ramírez',
-        },
-    ])
+    const records = ref<MaintenanceRecord[]>([])
 
     // ── Getters ───────────────────────────────────────────────
     const abiertos = computed(() => records.value.filter(r => r.estado === 'Abierto'))
@@ -63,6 +29,42 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
     }
 
     // ── Acciones ──────────────────────────────────────────────
+    const isLoading = ref(false)
+
+    async function loadMaintenances() {
+        isLoading.value = true
+        try {
+            const res = await api.get<any[]>('/maintenances')
+            const mapped = res.data.map((item: any) => {
+                const vehicle = vehiclesStore.vehicles.find(v => v.id === item.vehicleId || v.placa === item.plate)
+                const mType = (item.maintenanceType === 'PREVENTIVO') ? 'Preventivo' : 'Correctivo'
+                
+                return {
+                    id: item.id,
+                    vehiculoId: item.vehicleId || '',
+                    vehiculoPlaca: item.plate || '',
+                    vehiculoMarca: vehicle?.marca || 'Chevrolet',
+                    vehiculoModelo: vehicle?.modelo || 'NPR',
+                    tipo: mType,
+                    descripcion: item.observations || '',
+                    fechaIngreso: item.startDate || '',
+                    fechaSalida: item.endDate || null,
+                    kilometrajeIngreso: item.startKm || 0,
+                    kilometrajeSalida: item.endKm || null,
+                    costo: Number(item.cost) || 0,
+                    comentariosCierre: item.endDate ? (item.observations || '') : null,
+                    proximoMantenimiento: null,
+                    estado: item.endDate ? 'Cerrado' : 'Abierto',
+                    tecnico: item.mechanicalWorkshop || 'Taller Autorizado',
+                } as MaintenanceRecord
+            })
+            records.value = mapped
+        } catch (error) {
+            console.error('Error loading maintenances from backend:', error)
+        } finally {
+            isLoading.value = false
+        }
+    }
 
     async function openMaintenance(
         data: MaintenanceFormData,
@@ -209,6 +211,8 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
         abiertos,
         cerrados,
         porVehiculo,
+        isLoading,
+        loadMaintenances,
         openMaintenance,
         closeMaintenance,
         scheduleNext,
