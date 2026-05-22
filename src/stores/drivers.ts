@@ -13,6 +13,7 @@ import type {
 } from '@/types'
 import { useAuditStore } from './audit'
 import { api } from '@/utils/api'
+import { useAssignmentsStore } from './assignments'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,7 +137,7 @@ export const useDriversStore = defineStore('drivers', () => {
                 }))
 
                 const contactosEmergencia: EmergencyContact[] = (fullDetails?.emergencyContacts || []).map((c: any) => ({
-                    id: c.idEmergencyContact || c.id,
+                    id: c.idContact || c.id,
                     conductorId: d.idDriver,
                     nombre: c.contactName || (c.firstName + ' ' + c.lastName),
                     telefono: c.contactPhone || c.phone || c.telefono,
@@ -161,6 +162,19 @@ export const useDriversStore = defineStore('drivers', () => {
             }))
 
             drivers.value = loaded
+
+            // Reaplica las asignaciones activas en memoria para que
+            // vehiculoAsignadoPlaca/Id no queden en null tras un reload aislado.
+            try {
+                const assignmentsStore = useAssignmentsStore()
+                assignmentsStore.activas.forEach(a => {
+                    const d = loaded.find(d => d.id === a.conductorId)
+                    if (d) {
+                        d.vehiculoAsignadoId = a.vehiculoId
+                        d.vehiculoAsignadoPlaca = a.vehiculoPlaca
+                    }
+                })
+            } catch (_) { /* assignments store puede no estar inicializado aún */ }
         } catch (error) {
             console.error('Error loading drivers from backend:', error)
         } finally {

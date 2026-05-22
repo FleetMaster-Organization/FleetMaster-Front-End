@@ -13,6 +13,7 @@ import type {
 } from '@/types'
 import { useAuditStore } from './audit'
 import { api } from '@/utils/api'
+import { useAssignmentsStore } from './assignments'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -195,6 +196,19 @@ export const useVehiclesStore = defineStore('vehicles', () => {
             }))
 
             vehicles.value = loaded
+
+            // Reaplica las asignaciones activas que ya están en memoria
+            // para que conductorAsignadoId/Nombre no queden en null tras un reload.
+            try {
+                const assignmentsStore = useAssignmentsStore()
+                assignmentsStore.activas.forEach(a => {
+                    const v = loaded.find(v => v.id === a.vehiculoId)
+                    if (v) {
+                        v.conductorAsignadoId = a.conductorId
+                        v.conductorAsignadoNombre = a.conductorNombre
+                    }
+                })
+            } catch (_) { /* assignments store puede no estar inicializado aún */ }
         } catch (error) {
             console.error('Error loading vehicles from backend:', error)
         } finally {
