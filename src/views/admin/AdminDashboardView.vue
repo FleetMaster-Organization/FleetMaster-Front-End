@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useVehiclesStore } from '@/stores/vehicles'
 import { useDriversStore } from '@/stores/drivers'
 import { useAssignmentsStore } from '@/stores/assignments'
@@ -15,13 +15,19 @@ const driversStore = useDriversStore()
 const assignmentsStore = useAssignmentsStore()
 const alertsStore = useAlertsStore()
 
+const isLoading = ref(true)
+
 onMounted(async () => {
-    await Promise.all([
-        vehiclesStore.loadVehicles(),
-        driversStore.loadDrivers(),
-        assignmentsStore.loadAssignments(),
-        alertsStore.loadAlerts(),
-    ])
+    try {
+        await Promise.all([
+            vehiclesStore.loadVehicles(),
+            driversStore.loadDrivers(),
+            assignmentsStore.loadAssignments(),
+            alertsStore.loadAlerts(),
+        ])
+    } finally {
+        isLoading.value = false
+    }
 })
 
 // Helper para iconos de auditoría
@@ -140,6 +146,36 @@ const activities = computed<ActivityItem[]>(() => {
         <p class="text-sm text-gray-500 mt-0.5">Resumen general del sistema</p>
         </div>
 
+        <!-- ─── Skeleton de carga ─────────────────────────────────── -->
+        <template v-if="isLoading">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div v-for="i in 4" :key="i" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-pulse">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="h-4 bg-slate-200 rounded w-1/2"/>
+                        <div class="w-10 h-10 bg-slate-200 rounded-xl"/>
+                    </div>
+                    <div class="h-8 bg-slate-200 rounded w-1/3 mb-2"/>
+                    <div class="h-3 bg-slate-100 rounded w-2/3"/>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div v-for="i in 3" :key="i" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 animate-pulse">
+                    <div class="h-4 bg-slate-200 rounded w-1/3 mb-3"/>
+                    <div class="h-6 bg-slate-200 rounded w-1/4 mb-2"/>
+                    <div class="h-2 bg-slate-100 rounded-full"/>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div v-for="i in 2" :key="i" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 h-48 animate-pulse">
+                    <div class="h-4 bg-slate-200 rounded w-1/3 mb-4"/>
+                    <div v-for="j in 3" :key="j" class="h-3 bg-slate-100 rounded mb-3"/>
+                </div>
+            </div>
+        </template>
+
+        <!-- ─── Contenido cargado ─────────────────────────────────── -->
+        <template v-else>
+
         <!-- Top stat cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard v-for="stat in topStats" :key="stat.label" v-bind="stat" />
@@ -192,5 +228,7 @@ const activities = computed<ActivityItem[]>(() => {
         </div>
 
         </div>
+
+        </template>
     </div>
 </template>

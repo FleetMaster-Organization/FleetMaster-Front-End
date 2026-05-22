@@ -54,6 +54,8 @@ const columns = [
     { key: 'acciones',    label: '',             width: '100px', align: 'right' as const },
 ]
 
+const isSubmitting = ref(false)
+
 // ─── Create modal ────────────────────────────────────────────
 const showCreateModal = ref(false)
 const formError       = ref('')
@@ -146,14 +148,17 @@ async function createAssignment() {
         return
     }
 
-    const result = await assignmentsStore.createAssignment({ ...form })
-
-    if (result.success) {
-        showCreateModal.value = false
-        return
+    isSubmitting.value = true
+    try {
+        const result = await assignmentsStore.createAssignment({ ...form })
+        if (result.success) {
+            showCreateModal.value = false
+            return
+        }
+        formError.value = result.error ?? 'No se pudo crear la asignación.'
+    } finally {
+        isSubmitting.value = false
     }
-
-    formError.value = result.error ?? 'No se pudo crear la asignación.'
 }
 
 // ─── Actions — close ─────────────────────────────────────────
@@ -169,18 +174,21 @@ async function closeAssignment() {
     if (!closingAssignment.value) return
     closeError.value = ''
 
-    const result = await assignmentsStore.closeAssignment(
-        closingAssignment.value.id,
-        { ...closeForm }
-    )
-
-    if (result.success) {
-        showCloseModal.value    = false
-        closingAssignment.value = null
-        return
+    isSubmitting.value = true
+    try {
+        const result = await assignmentsStore.closeAssignment(
+            closingAssignment.value.id,
+            { ...closeForm }
+        )
+        if (result.success) {
+            showCloseModal.value    = false
+            closingAssignment.value = null
+            return
+        }
+        closeError.value = result.error ?? 'No se pudo cerrar la asignación.'
+    } finally {
+        isSubmitting.value = false
     }
-
-    closeError.value = result.error ?? 'No se pudo cerrar la asignación.'
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -322,6 +330,7 @@ function getDriverLabel(driver: Driver): string {
             <DataTable
                 :columns="columns"
                 :rows="tableRows"
+                :loading="assignmentsStore.isLoading"
                 row-key="id"
                 empty-message="No hay asignaciones registradas."
             >
@@ -497,11 +506,15 @@ function getDriverLabel(driver: Driver): string {
                     </button>
                     <button
                         type="button"
-                        class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl
-                            px-5 py-2 text-sm font-semibold transition"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl px-5 py-2 text-sm font-semibold transition"
                         @click="createAssignment"
                     >
-                        Crear asignación
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Crear asignación' }}
                     </button>
                 </div>
             </template>
@@ -587,11 +600,15 @@ function getDriverLabel(driver: Driver): string {
                     </button>
                     <button
                         type="button"
-                        class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl
-                            px-5 py-2 text-sm font-semibold transition"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl px-5 py-2 text-sm font-semibold transition"
                         @click="closeAssignment"
                     >
-                        Cerrar asignación
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Cerrar asignación' }}
                     </button>
                 </div>
             </template>

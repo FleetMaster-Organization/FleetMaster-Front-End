@@ -111,6 +111,8 @@ const eligibleVehicles = computed(() =>
     )
 )
 
+const isSubmitting = ref(false)
+
 // ─── Modal: abrir mantenimiento ──────────────────────────────────
 const showCreateModal = ref(false)
 const formError       = ref('')
@@ -163,14 +165,17 @@ async function submitOpenMaintenance() {
         return
     }
 
-    const result = await maintenanceStore.openMaintenance({ ...openForm })
-
-    if (result.success) {
-        showCreateModal.value = false
-        return
+    isSubmitting.value = true
+    try {
+        const result = await maintenanceStore.openMaintenance({ ...openForm })
+        if (result.success) {
+            showCreateModal.value = false
+            return
+        }
+        formError.value = result.error ?? 'No se pudo abrir el mantenimiento.'
+    } finally {
+        isSubmitting.value = false
     }
-
-    formError.value = result.error ?? 'No se pudo abrir el mantenimiento.'
 }
 
 // ─── Modal: cerrar mantenimiento ─────────────────────────────────
@@ -221,18 +226,21 @@ async function submitCloseMaintenance() {
         proximoMantenimiento: closeForm.proximoMantenimiento || undefined,
     }
 
-    const result = await maintenanceStore.closeMaintenance(
-        closingRecord.value.id,
-        payload,
-    )
-
-    if (result.success) {
-        showCloseModal.value  = false
-        closingRecord.value   = null
-        return
+    isSubmitting.value = true
+    try {
+        const result = await maintenanceStore.closeMaintenance(
+            closingRecord.value.id,
+            payload,
+        )
+        if (result.success) {
+            showCloseModal.value  = false
+            closingRecord.value   = null
+            return
+        }
+        closeError.value = result.error ?? 'No se pudo cerrar el mantenimiento.'
+    } finally {
+        isSubmitting.value = false
     }
-
-    closeError.value = result.error ?? 'No se pudo cerrar el mantenimiento.'
 }
 </script>
 
@@ -294,6 +302,7 @@ async function submitCloseMaintenance() {
             <DataTable
                 :columns="columns"
                 :rows="tableRows"
+                :loading="maintenanceStore.isLoading"
                 row-key="id"
                 empty-message="No hay mantenimientos abiertos."
             >
@@ -490,11 +499,15 @@ async function submitCloseMaintenance() {
                     </button>
                     <button
                         type="button"
-                        class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl
-                            px-5 py-2 text-sm font-semibold transition"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl px-5 py-2 text-sm font-semibold transition"
                         @click="submitOpenMaintenance"
                     >
-                        Abrir mantenimiento
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Abrir mantenimiento' }}
                     </button>
                 </div>
             </template>
@@ -589,11 +602,15 @@ async function submitCloseMaintenance() {
                     </button>
                     <button
                         type="button"
-                        class="bg-blue-600 hover:bg-blue-700 text-white rounded-xl
-                            px-5 py-2 text-sm font-semibold transition"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl px-5 py-2 text-sm font-semibold transition"
                         @click="submitCloseMaintenance"
                     >
-                        Cerrar mantenimiento
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Cerrar mantenimiento' }}
                     </button>
                 </div>
             </template>

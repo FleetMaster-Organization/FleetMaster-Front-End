@@ -129,6 +129,7 @@ const createError     = ref('')
 const showSuccessModal = ref(false)
 const successMessage  = ref('')
 const successTitle    = ref('')
+const isSubmitting    = ref(false)
 
 const EMPTY_CREATE = (): VehicleFormData => ({
     vin: '', placa: '', marca: '', modelo: '',
@@ -233,15 +234,19 @@ async function submitCreate() {
         return
     }
 
-    const result = await store.createVehicle({ ...createForm }, currentUser.value)
-
-    if (result.ok) {
-        showCreateModal.value = false
-        successTitle.value = '✓ Vehículo registrado exitosamente'
-        successMessage.value = `El vehículo ${formatPlacaDisplay(createForm.placa)} (${createForm.marca} ${createForm.modelo}) ha sido agregado a la flota.`
-        showSuccessModal.value = true
-    } else {
-        createError.value = result.error ?? 'Error desconocido.'
+    isSubmitting.value = true
+    try {
+        const result = await store.createVehicle({ ...createForm }, currentUser.value)
+        if (result.ok) {
+            showCreateModal.value = false
+            successTitle.value = '✓ Vehículo registrado exitosamente'
+            successMessage.value = `El vehículo ${formatPlacaDisplay(createForm.placa)} (${createForm.marca} ${createForm.modelo}) ha sido agregado a la flota.`
+            showSuccessModal.value = true
+        } else {
+            createError.value = result.error ?? 'Error desconocido.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -325,19 +330,23 @@ async function submitEdit() {
         return
     }
 
-    const result = await store.updateVehicle(
-        editingVehicle.value.id,
-        { ...editForm },
-        currentUser.value,
-    )
-
-    if (result.ok) {
-        showEditModal.value = false
-        successTitle.value = '✓ Cambios guardados'
-        successMessage.value = `Los datos del vehículo ${formatPlacaDisplay(editingVehicle.value.placa)} han sido actualizados correctamente.`
-        showSuccessModal.value = true
-    } else {
-        editError.value = result.error ?? 'Error desconocido.'
+    isSubmitting.value = true
+    try {
+        const result = await store.updateVehicle(
+            editingVehicle.value.id,
+            { ...editForm },
+            currentUser.value,
+        )
+        if (result.ok) {
+            showEditModal.value = false
+            successTitle.value = '✓ Cambios guardados'
+            successMessage.value = `Los datos del vehículo ${formatPlacaDisplay(editingVehicle.value.placa)} han sido actualizados correctamente.`
+            showSuccessModal.value = true
+        } else {
+            editError.value = result.error ?? 'Error desconocido.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -354,24 +363,27 @@ function openSell(v: Vehicle) {
 
 async function confirmSell() {
     if (!sellTarget.value) return
-    // Para la demo se asume sin asignación/mantenimiento abierto;
-    // en integración real estos flags vienen de los stores correspondientes.
-    const result = await store.changeAdministrativeStatus(
-        sellTarget.value.id,
-        'Vendido',
-        currentUser.value,
-        false,  // hasOpenAssignment
-        false,  // hasOpenMaintenance
-    )
-    if (result.ok) {
-        showSellModal.value = false
-        successTitle.value = '✓ Vehículo marcado como vendido'
-        successMessage.value = `El vehículo ${formatPlacaDisplay(sellTarget.value.placa)} ha sido retirado de la operación.`
-        showSuccessModal.value = true
-        sellTarget.value    = null
-        sellError.value     = ''
-    } else {
-        sellError.value = result.error ?? 'Error.'
+    isSubmitting.value = true
+    try {
+        const result = await store.changeAdministrativeStatus(
+            sellTarget.value.id,
+            'Vendido',
+            currentUser.value,
+            false,
+            false,
+        )
+        if (result.ok) {
+            showSellModal.value = false
+            successTitle.value = '✓ Vehículo marcado como vendido'
+            successMessage.value = `El vehículo ${formatPlacaDisplay(sellTarget.value.placa)} ha sido retirado de la operación.`
+            showSuccessModal.value = true
+            sellTarget.value    = null
+            sellError.value     = ''
+        } else {
+            sellError.value = result.error ?? 'Error.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -484,6 +496,7 @@ const docsAlert = computed(() => {
         <DataTable
             :columns="columns"
             :rows="paginatedVehicles"
+            :loading="store.isLoading"
             row-key="id"
             empty-message="No se encontraron vehículos con los filtros actuales."
         >
@@ -824,9 +837,16 @@ const docsAlert = computed(() => {
                         @click="showCreateModal = false"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                         @click="submitCreate"
-                    >Registrar vehículo</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Registrar vehículo' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>
@@ -1018,9 +1038,16 @@ const docsAlert = computed(() => {
                         @click="showEditModal = false"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                         @click="submitEdit"
-                    >Guardar cambios</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Guardar cambios' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>
@@ -1059,9 +1086,16 @@ const docsAlert = computed(() => {
                         @click="showSellModal = false; sellError = ''"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                         @click="confirmSell"
-                    >Sí, marcar como vendido</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Procesando...' : 'Sí, marcar como vendido' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>

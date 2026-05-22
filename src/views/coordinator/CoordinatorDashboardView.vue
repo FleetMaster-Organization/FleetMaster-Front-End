@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import StatCard from '@/components/dashboard/StatCard.vue'
@@ -25,13 +25,19 @@ const driversStore = useDriversStore()
 const assignmentsStore = useAssignmentsStore()
 const alertsStore = useAlertsStore()
 
+const isLoading = ref(true)
+
 onMounted(async () => {
-    await Promise.all([
-        vehiclesStore.loadVehicles(),
-        driversStore.loadDrivers(),
-        assignmentsStore.loadAssignments(),
-        alertsStore.loadAlerts(),
-    ])
+    try {
+        await Promise.all([
+            vehiclesStore.loadVehicles(),
+            driversStore.loadDrivers(),
+            assignmentsStore.loadAssignments(),
+            alertsStore.loadAlerts(),
+        ])
+    } finally {
+        isLoading.value = false
+    }
 })
 
 // ─── Top stats ───────────────────────────────────────────────
@@ -142,7 +148,29 @@ const recentActivities = computed<ActivityItem[]>(() =>
             </p>
         </div>
 
+        <!-- Skeleton de carga -->
+        <template v-if="isLoading">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div v-for="i in 4" :key="i" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 animate-pulse">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="h-4 bg-slate-200 rounded w-1/2"/>
+                        <div class="w-10 h-10 bg-slate-200 rounded-xl"/>
+                    </div>
+                    <div class="h-8 bg-slate-200 rounded w-1/3 mb-2"/>
+                    <div class="h-3 bg-slate-100 rounded w-2/3"/>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div v-for="i in 3" :key="i" class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 animate-pulse">
+                    <div class="h-4 bg-slate-200 rounded w-1/3 mb-3"/>
+                    <div class="h-6 bg-slate-200 rounded w-1/4 mb-2"/>
+                    <div class="h-2 bg-slate-100 rounded-full"/>
+                </div>
+            </div>
+        </template>
+
         <!-- Stats -->
+        <template v-else>
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <StatCard
                 v-for="stat in topStats"
@@ -216,5 +244,6 @@ const recentActivities = computed<ActivityItem[]>(() =>
                 </div>
             </div>
         </div>
+        </template>
     </div>
 </template>

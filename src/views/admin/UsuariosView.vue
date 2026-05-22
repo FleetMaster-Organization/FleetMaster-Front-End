@@ -72,6 +72,7 @@ function fmtDateTime(iso: string): string {
 const showFormModal  = ref(false)
 const editingUser    = ref<AppUser | null>(null)
 const formError      = ref('')
+const isSubmitting   = ref(false)
 const showPassword   = ref(false)
 
 const EMPTY_FORM = (): UserFormData => ({
@@ -114,17 +115,21 @@ async function submitForm() {
         return
     }
 
-    let result: { success: boolean; error?: string }
-    if (editingUser.value) {
-        result = await usersStore.updateUser(editingUser.value.id, { ...form })
-    } else {
-        result = await usersStore.createUser({ ...form })
-    }
-
-    if (result.success) {
-        showFormModal.value = false
-    } else {
-        formError.value = result.error ?? 'Error desconocido.'
+    isSubmitting.value = true
+    try {
+        let result: { success: boolean; error?: string }
+        if (editingUser.value) {
+            result = await usersStore.updateUser(editingUser.value.id, { ...form })
+        } else {
+            result = await usersStore.createUser({ ...form })
+        }
+        if (result.success) {
+            showFormModal.value = false
+        } else {
+            formError.value = result.error ?? 'Error desconocido.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -143,11 +148,16 @@ function openConfirm(u: AppUser, accion: 'activar' | 'desactivar') {
 
 async function doConfirm() {
     if (!confirmTarget.value) return
-    const result = await usersStore.toggleStatus(confirmTarget.value.id, confirmAccion.value)
-    if (result.success) {
-        showConfirmModal.value = false
-    } else {
-        confirmError.value = result.error ?? 'Error.'
+    isSubmitting.value = true
+    try {
+        const result = await usersStore.toggleStatus(confirmTarget.value.id, confirmAccion.value)
+        if (result.success) {
+            showConfirmModal.value = false
+        } else {
+            confirmError.value = result.error ?? 'Error.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -225,6 +235,7 @@ const allRoles: UserRole[] = [
         <DataTable
         :columns="columns"
         :rows="filteredUsers"
+        :loading="usersStore.isLoading"
         row-key="id"
         empty-message="No se encontraron usuarios con los filtros aplicados."
         >
@@ -475,9 +486,16 @@ const allRoles: UserRole[] = [
                 @click="showFormModal = false"
             >Cancelar</button>
             <button
-                class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+                :disabled="isSubmitting"
+                class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                 @click="submitForm"
-            >{{ editingUser ? 'Guardar cambios' : 'Crear usuario' }}</button>
+            >
+                <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                </svg>
+                {{ isSubmitting ? 'Guardando...' : (editingUser ? 'Guardar cambios' : 'Crear usuario') }}
+            </button>
             </div>
         </template>
         </BaseModal>
@@ -517,15 +535,20 @@ const allRoles: UserRole[] = [
                 @click="showConfirmModal = false"
             >Cancelar</button>
             <button
+                :disabled="isSubmitting"
                 :class="[
-                'px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors',
+                'flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
                 confirmAccion === 'desactivar'
                     ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-emerald-600 hover:bg-emerald-700',
                 ]"
                 @click="doConfirm"
             >
-                {{ confirmAccion === 'desactivar' ? 'Sí, desactivar' : 'Sí, activar' }}
+                <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                </svg>
+                {{ isSubmitting ? 'Procesando...' : (confirmAccion === 'desactivar' ? 'Sí, desactivar' : 'Sí, activar') }}
             </button>
             </div>
         </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useMaintenanceStore } from '@/stores/maintenance'
 import { useVehiclesStore }    from '@/stores/vehicles'
 import DataTable   from '@/components/ui/DataTable.vue'
@@ -9,6 +9,15 @@ import type { MaintenanceRecord, MaintenanceFormData, MaintenanceCloseData, Main
 
 const maintenanceStore = useMaintenanceStore()
 const vehiclesStore    = useVehiclesStore()
+
+onMounted(async () => {
+    await Promise.all([
+        maintenanceStore.loadMaintenances(),
+        vehiclesStore.loadVehicles(),
+    ])
+})
+
+const isSubmitting = ref(false)
 
 // ── Tabs ──────────────────────────────────────────────────────
 const activeTab = ref<'taller' | 'historial'>('taller')
@@ -132,11 +141,16 @@ async function submitForm() {
         formError.value = 'Completa todos los campos obligatorios.'
         return
     }
-    const result = await maintenanceStore.openMaintenance({ ...form })
-    if (result.success) {
-        showFormModal.value = false
-    } else {
-        formError.value = result.error ?? 'Error desconocido.'
+    isSubmitting.value = true
+    try {
+        const result = await maintenanceStore.openMaintenance({ ...form })
+        if (result.success) {
+            showFormModal.value = false
+        } else {
+            formError.value = result.error ?? 'Error desconocido.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -167,17 +181,22 @@ async function submitClose() {
         return
     }
     if (!closingTarget.value) return
-    const result = await maintenanceStore.closeMaintenance(closingTarget.value.id, {
-        fechaSalida:          closeForm.fechaSalida,
-        kilometrajeSalida:    closeForm.kilometrajeSalida,
-        comentariosCierre:    closeForm.comentariosCierre    || undefined,
-        proximoMantenimiento: closeForm.proximoMantenimiento || undefined,
-    })
-    if (result.success) {
-        showCloseModal.value = false
-        closingTarget.value  = null
-    } else {
-        closeError.value = result.error ?? 'Error.'
+    isSubmitting.value = true
+    try {
+        const result = await maintenanceStore.closeMaintenance(closingTarget.value.id, {
+            fechaSalida:          closeForm.fechaSalida,
+            kilometrajeSalida:    closeForm.kilometrajeSalida,
+            comentariosCierre:    closeForm.comentariosCierre    || undefined,
+            proximoMantenimiento: closeForm.proximoMantenimiento || undefined,
+        })
+        if (result.success) {
+            showCloseModal.value = false
+            closingTarget.value  = null
+        } else {
+            closeError.value = result.error ?? 'Error.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -249,6 +268,7 @@ const vehiculoCierre = computed(() =>
             v-if="activeTab === 'taller'"
             :columns="columnsTaller"
             :rows="filteredTaller"
+            :loading="maintenanceStore.isLoading"
             row-key="id"
             empty-message="No hay vehículos en taller actualmente."
         >
@@ -321,6 +341,7 @@ const vehiculoCierre = computed(() =>
             v-if="activeTab === 'historial'"
             :columns="columnsHistorial"
             :rows="filteredHistorial"
+            :loading="maintenanceStore.isLoading"
             row-key="id"
             empty-message="No hay registros de mantenimiento cerrados."
         >
@@ -506,9 +527,16 @@ const vehiculoCierre = computed(() =>
                         @click="showFormModal = false"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                         @click="submitForm"
-                    >Abrir registro</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Abrir registro' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>
@@ -638,9 +666,16 @@ const vehiculoCierre = computed(() =>
                         @click="showCloseModal = false"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors shadow-sm"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                         @click="submitClose"
-                    >Cerrar y liberar vehículo</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Cerrar y liberar vehículo' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>

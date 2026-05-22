@@ -166,6 +166,7 @@ function markManaged(id: string) {
         v-if="activeTab === 'pendientes'"
         :columns="columns"
         :rows="filteredPendientes as unknown as Record<string, unknown>[]"
+        :loading="alertsStore.isLoading"
         row-key="id"
         empty-message="No hay alertas pendientes. ¡Todo en orden!"
         >
@@ -227,6 +228,7 @@ function markManaged(id: string) {
         v-if="activeTab === 'gestionadas'"
         :columns="columnsGestionadas"
         :rows="filteredGestionadas as unknown as Record<string, unknown>[]"
+        :loading="alertsStore.isLoading"
         row-key="id"
         empty-message="No hay alertas gestionadas."
         >

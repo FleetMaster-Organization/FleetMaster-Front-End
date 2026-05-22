@@ -180,6 +180,8 @@ function licenciasLabel(conductorId: string): string {
         .join(', ')
 }
 
+const isSubmitting = ref(false)
+
 // ── Modal Nueva Asignación ────────────────────────────────────
 const showFormModal = ref(false)
 const formError     = ref('')
@@ -202,11 +204,16 @@ async function submitForm() {
         formError.value = 'Selecciona un vehículo y un conductor.'
         return
     }
-    const result = await assignmentsStore.createAssignment({ ...form })
-    if (result.success) {
-        showFormModal.value = false
-    } else {
-        formError.value = result.error ?? 'Error desconocido.'
+    isSubmitting.value = true
+    try {
+        const result = await assignmentsStore.createAssignment({ ...form })
+        if (result.success) {
+            showFormModal.value = false
+        } else {
+            formError.value = result.error ?? 'Error desconocido.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -239,12 +246,17 @@ async function submitClose() {
         return
     }
     if (!closingTarget.value) return
-    const result = await assignmentsStore.closeAssignment(closingTarget.value.id, { ...closeForm })
-    if (result.success) {
-        showCloseModal.value = false
-        closingTarget.value  = null
-    } else {
-        closeError.value = result.error ?? 'Error.'
+    isSubmitting.value = true
+    try {
+        const result = await assignmentsStore.closeAssignment(closingTarget.value.id, { ...closeForm })
+        if (result.success) {
+            showCloseModal.value = false
+            closingTarget.value  = null
+        } else {
+            closeError.value = result.error ?? 'Error.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -334,6 +346,7 @@ const kmMinimoActual = computed(() => {
             v-if="activeTab === 'activas'"
             :columns="columnsActivas"
             :rows="filteredActivas"
+            :loading="assignmentsStore.isLoading"
             row-key="id"
             empty-message="No hay asignaciones activas."
         >
@@ -397,6 +410,7 @@ const kmMinimoActual = computed(() => {
             v-if="activeTab === 'historial'"
             :columns="columnsHistorial"
             :rows="filteredHistorial"
+            :loading="assignmentsStore.isLoading"
             row-key="id"
             empty-message="No hay asignaciones finalizadas."
         >
@@ -585,9 +599,16 @@ const kmMinimoActual = computed(() => {
                         @click="showFormModal = false"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                         @click="submitForm"
-                    >Confirmar asignación</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Confirmar asignación' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>
@@ -664,9 +685,16 @@ const kmMinimoActual = computed(() => {
                         @click="showCloseModal = false"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors shadow-sm"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                         @click="submitClose"
-                    >Registrar llegada</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Registrar llegada' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>

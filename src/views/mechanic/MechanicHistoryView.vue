@@ -187,6 +187,7 @@ function formatCurrency(value: number): string {
             <DataTable
                 :columns="columns"
                 :rows="tableRows"
+                :loading="maintenanceStore.isLoading"
                 row-key="id"
                 empty-message="No hay registros cerrados para mostrar."
             >

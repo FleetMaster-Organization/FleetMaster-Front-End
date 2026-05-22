@@ -177,6 +177,7 @@ function getDaysText(days: number) {
             <DataTable
                 :columns="columns"
                 :rows="tableRows"
+                :loading="alertsStore.isLoading"
                 row-key="id"
                 empty-message="No se encontraron alertas."
             >

@@ -146,6 +146,8 @@ function emptyContact(): ContactRow {
     return { nombre: '', telefono: '', relacion: '' }
 }
 
+const isSubmitting = ref(false)
+
 // ─── Modal Crear ─────────────────────────────────────────────
 const showCreateModal = ref(false)
 const createError     = ref('')
@@ -287,11 +289,16 @@ async function submitCreate() {
         })),
     }
 
-    const result = await store.createDriver(payload, currentUser.value)
-    if (result.ok) {
-        showCreateModal.value = false
-    } else {
-        createError.value = result.error ?? 'Error desconocido.'
+    isSubmitting.value = true
+    try {
+        const result = await store.createDriver(payload, currentUser.value)
+        if (result.ok) {
+            showCreateModal.value = false
+        } else {
+            createError.value = result.error ?? 'Error desconocido.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -444,11 +451,16 @@ async function submitEdit() {
         })),
     }
 
-    const result = await store.updateDriver(editingDriver.value.id, payload, currentUser.value)
-    if (result.ok) {
-        showEditModal.value = false
-    } else {
-        editError.value = result.error ?? 'Error desconocido.'
+    isSubmitting.value = true
+    try {
+        const result = await store.updateDriver(editingDriver.value.id, payload, currentUser.value)
+        if (result.ok) {
+            showEditModal.value = false
+        } else {
+            editError.value = result.error ?? 'Error desconocido.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 
@@ -476,16 +488,20 @@ function openConfirmActivate(d: Driver) {
 
 async function doConfirmAction() {
     if (!confirmTarget.value) return
-    const result = confirmMode.value === 'deactivate'
-        ? await store.inactivateDriver(confirmTarget.value.id, confirmSubstatus.value, currentUser.value)
-        : await store.activateDriver(confirmTarget.value.id, currentUser.value)
-
-    if (result.ok) {
-        showConfirmModal.value = false
-        confirmTarget.value    = null
-        confirmError.value     = ''
-    } else {
-        confirmError.value = result.error ?? 'Error.'
+    isSubmitting.value = true
+    try {
+        const result = confirmMode.value === 'deactivate'
+            ? await store.inactivateDriver(confirmTarget.value.id, confirmSubstatus.value, currentUser.value)
+            : await store.activateDriver(confirmTarget.value.id, currentUser.value)
+        if (result.ok) {
+            showConfirmModal.value = false
+            confirmTarget.value    = null
+            confirmError.value     = ''
+        } else {
+            confirmError.value = result.error ?? 'Error.'
+        }
+    } finally {
+        isSubmitting.value = false
     }
 }
 </script>
@@ -576,6 +592,7 @@ async function doConfirmAction() {
         <DataTable
             :columns="columns"
             :rows="paginatedDrivers"
+            :loading="store.isLoading"
             row-key="id"
             empty-message="No se encontraron conductores con los filtros actuales."
         >
@@ -949,9 +966,16 @@ async function doConfirmAction() {
                         @click="showCreateModal = false"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                         @click="submitCreate"
-                    >Registrar conductor</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Registrar conductor' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>
@@ -1185,9 +1209,16 @@ async function doConfirmAction() {
                         @click="showEditModal = false"
                     >Cancelar</button>
                     <button
-                        class="px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+                        :disabled="isSubmitting"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg transition-colors shadow-sm"
                         @click="submitEdit"
-                    >Guardar cambios</button>
+                    >
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Guardando...' : 'Guardar cambios' }}
+                    </button>
                 </div>
             </template>
         </BaseModal>
@@ -1248,15 +1279,20 @@ async function doConfirmAction() {
                         @click="showConfirmModal = false"
                     >Cancelar</button>
                     <button
+                        :disabled="isSubmitting"
                         :class="[
-                            'px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors',
+                            'flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
                             confirmMode === 'deactivate'
                                 ? 'bg-amber-500 hover:bg-amber-600'
                                 : 'bg-emerald-600 hover:bg-emerald-700',
                         ]"
                         @click="doConfirmAction"
                     >
-                        {{ confirmMode === 'deactivate' ? 'Sí, inactivar' : 'Sí, activar' }}
+                        <svg v-if="isSubmitting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                        </svg>
+                        {{ isSubmitting ? 'Procesando...' : (confirmMode === 'deactivate' ? 'Sí, inactivar' : 'Sí, activar') }}
                     </button>
                 </div>
             </template>

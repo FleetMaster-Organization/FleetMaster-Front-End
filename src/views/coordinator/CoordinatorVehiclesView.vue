@@ -198,6 +198,7 @@ const countMantenimiento = computed(() => vehiclesStore.inMaintenanceVehicles)
             <DataTable
                 :columns="columns"
                 :rows="paginatedVehicles"
+                :loading="vehiclesStore.isLoading"
                 row-key="id"
                 empty-message="No se encontraron vehículos"
             >

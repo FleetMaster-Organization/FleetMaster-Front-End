@@ -194,6 +194,7 @@ function sortLicenses(licenses: DriverLicense[]): DriverLicense[] {
             <DataTable
                 :columns="columns"
                 :rows="paginatedDrivers"
+                :loading="driversStore.isLoading"
                 row-key="id"
                 empty-message="No se encontraron conductores."
             >
