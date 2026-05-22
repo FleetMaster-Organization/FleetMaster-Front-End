@@ -149,9 +149,6 @@ async function handleLogin() {
         style="background-color: #f3f4f6; border-top: 1px solid #e5e7eb;"
         >
         Personal autorizado únicamente.
-        <a href="#" class="font-semibold hover:underline ml-1" style="color: #1a3a5c;">
-            Solicitar acceso
-        </a>
         </div>
 
     </div>
