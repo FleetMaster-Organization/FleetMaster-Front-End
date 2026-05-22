@@ -318,7 +318,7 @@ export interface AssignmentCloseData {
 
 // ── Mantenimiento ─────────────────────────────────────────────
 export type MaintenanceStatus = 'Abierto' | 'Cerrado'
-export type MaintenanceType   = 'Preventivo' | 'Correctivo' | 'Revisión'
+export type MaintenanceType   = 'Preventivo' | 'Correctivo' | 'Revisión' | 'Reparacion'
 
 export interface MaintenanceRecord {
     id: string
