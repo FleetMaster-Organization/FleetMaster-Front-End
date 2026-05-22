@@ -84,12 +84,13 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0]!
 }
 
-const maintenanceTypes: MaintenanceType[] = ['Preventivo', 'Correctivo', 'Revisión']
+const maintenanceTypes: MaintenanceType[] = ['Preventivo', 'Correctivo', 'Revisión','Reparacion']
 
 const typeBadgeClass: Record<MaintenanceType, string> = {
     Preventivo: 'bg-blue-50 text-blue-700 border-blue-200',
     Correctivo: 'bg-red-50 text-red-700 border-red-200',
     Revisión:   'bg-slate-100 text-slate-600 border-slate-200',
+    Reparacion: 'bg-amber-100 text-amber-700 border-amber-200',
 }
 
 // ── Vehículos elegibles ───────────────────────────────────────
@@ -618,7 +619,7 @@ const vehiculoCierre = computed(() =>
                                 : 'bg-emerald-100 text-emerald-700 border-emerald-200',
                             ]"
                         >
-                            {{ doc.tipo === 'SOAT' ? 'SOAT' : 'Tecnomecánica' }}
+                            {{ doc.tipo === 'SOAT' ? 'SOAT' : (doc.tipo === 'TARJETA_PROPIEDAD' ? 'Tarjeta de propiedad' : 'Tecnomecánica') }}
                             · {{ doc.estadoLegal }}
                         </span>
                     </div>

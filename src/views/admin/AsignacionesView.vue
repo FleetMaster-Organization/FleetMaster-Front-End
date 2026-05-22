@@ -149,9 +149,10 @@ function alertasVehiculo(): string[] {
     if (!v) return []
     const alertas: string[] = []
     for (const doc of v.documentos) {
+        if (!doc.fechaVencimiento) continue
         const dias = diffDays(doc.fechaVencimiento)
         if (dias >= 0 && dias <= 30) {
-            const nombre = doc.tipo === 'SOAT' ? 'SOAT' : 'Tecnomecánica'
+            const nombre = doc.tipo === 'SOAT' ? 'SOAT' : (doc.tipo === 'TARJETA_PROPIEDAD' ? 'Tarjeta de propiedad' : 'Tecnomecánica')
             alertas.push(`⚠ ${nombre} vence en ${dias} día(s) (${fmtDate(doc.fechaVencimiento)})`)
         }
     }
@@ -498,7 +499,7 @@ const kmMinimoActual = computed(() => {
                                 : 'bg-emerald-100 text-emerald-700 border-emerald-200',
                             ]"
                         >
-                            {{ doc.tipo === 'SOAT' ? 'SOAT' : 'Tecnomecánica' }}
+                            {{ doc.tipo === 'SOAT' ? 'SOAT' : (doc.tipo === 'TARJETA_PROPIEDAD' ? 'Tarjeta de propiedad' : 'Tecnomecánica') }}
                             · {{ doc.estadoLegal }}
                         </span>
                     </div>

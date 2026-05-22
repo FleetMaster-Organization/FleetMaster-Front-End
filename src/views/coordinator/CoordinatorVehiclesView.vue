@@ -33,6 +33,7 @@ const columns = [
     { key: 'kilometraje',    label: 'Kilometraje',        align: 'right' as const },
     { key: 'soat',           label: 'SOAT',               width: '150px' },
     { key: 'tecnomecanica',  label: 'Tecno mecánica',     width: '160px' },
+    { key: 'tarjetaPropiedad',label: 'T. Propiedad',       width: '140px' },
 ]
 
 // ─── Stats — reusar computed del store (evita redefinir lógica) ──
@@ -266,6 +267,13 @@ const countMantenimiento = computed(() => vehiclesStore.inMaintenanceVehicles)
                         </div>
                     </template>
                     <span v-else class="text-slate-400 text-xs">—</span>
+                </template>
+
+                <!-- Tarjeta de propiedad -->
+                <template #cell-tarjetaPropiedad="{ row }">
+                    <span class="font-mono text-xs text-slate-700">
+                        {{ (row as Vehicle).tarjetaPropiedad || '—' }}
+                    </span>
                 </template>
 
             </DataTable>
