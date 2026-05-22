@@ -618,7 +618,7 @@ const vehiculoCierre = computed(() =>
                                 : 'bg-emerald-100 text-emerald-700 border-emerald-200',
                             ]"
                         >
-                            {{ doc.tipo === 'SOAT' ? 'SOAT' : 'Tecnomecánica' }}
+                            {{ doc.tipo === 'SOAT' ? 'SOAT' : (doc.tipo === 'TARJETA_PROPIEDAD' ? 'Tarjeta de propiedad' : 'Tecnomecánica') }}
                             · {{ doc.estadoLegal }}
                         </span>
                     </div>

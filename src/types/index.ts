@@ -63,7 +63,7 @@ export type VehicleAdministrativeStatus =
 
 export type VehicleType = 'Camión' | 'Van' | 'Moto' | 'Automóvil' | 'Bus'
 
-export type VehicleDocumentType = 'SOAT' | 'TECNOMECANICA'
+export type VehicleDocumentType = 'SOAT' | 'TECNOMECANICA' | 'TARJETA_PROPIEDAD'
 
 export type DocumentLegalStatus = 'Vigente' | 'Por vencer' | 'Vencido'
 
@@ -71,6 +71,7 @@ export interface VehicleDocument {
     id: string
     vehiculoId: string
     tipo: VehicleDocumentType           
+    documentNumber?: string
     fechaExpedicion: string             
     fechaVencimiento: string            
     estadoLegal: DocumentLegalStatus    
@@ -87,6 +88,7 @@ export interface Vehicle {
     estadoOperativo: VehicleOperationalStatus
     estadoAdministrativo: VehicleAdministrativeStatus
     kilometraje: number
+    tarjetaPropiedad?: string
     conductorAsignadoId: string | null
     conductorAsignadoNombre: string | null
     documentos: VehicleDocument[]
@@ -113,6 +115,7 @@ export interface VehicleFormData {
     anio: number
     tipo: VehicleType
     kilometraje: number                  
+    tarjetaPropiedad?: string
     // Documentos: obligatorios al crear (REQ-05)
     soat: {
         fechaExpedicion: string
@@ -131,6 +134,7 @@ export interface VehicleEditFormData {
     anio: number
     tipo: VehicleType
     kilometraje: number
+    tarjetaPropiedad?: string
     estadoAdministrativo: VehicleAdministrativeStatus
     // Actualización de documentos legales (REQ-09)
     soat: {

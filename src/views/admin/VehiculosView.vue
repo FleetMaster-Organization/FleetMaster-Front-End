@@ -88,6 +88,7 @@ const columns = [
     { key: 'estadoAdministrativo',    label: 'Estado adm.',  width: '110px' },
     { key: 'soat',                    label: 'SOAT',         width: '120px' },
     { key: 'tecnomecanica',           label: 'Tecnomecánica',width: '130px' },
+    { key: 'tarjetaPropiedad',        label: 'T. Propiedad', width: '120px' },
     { key: 'conductorAsignadoNombre', label: 'Conductor' },
     { key: 'kilometraje',             label: 'Km',           width: '110px', align: 'right' as const },
     { key: 'actions',                 label: 'Acciones',     width: '100px', align: 'center' as const },
@@ -125,11 +126,15 @@ function docBadgeClass(status: DocumentLegalStatus | '—'): string {
 // ─── Modal Crear ─────────────────────────────────────────────
 const showCreateModal = ref(false)
 const createError     = ref('')
+const showSuccessModal = ref(false)
+const successMessage  = ref('')
+const successTitle    = ref('')
 
 const EMPTY_CREATE = (): VehicleFormData => ({
     vin: '', placa: '', marca: '', modelo: '',
     anio: new Date().getFullYear(), tipo: 'Camión',
     kilometraje: 0,
+    tarjetaPropiedad: '',
     soat:          { fechaExpedicion: '', fechaVencimiento: '' },
     tecnomecanica: { fechaExpedicion: '', fechaVencimiento: '' },
 })
@@ -232,6 +237,9 @@ async function submitCreate() {
 
     if (result.ok) {
         showCreateModal.value = false
+        successTitle.value = '✓ Vehículo registrado exitosamente'
+        successMessage.value = `El vehículo ${formatPlacaDisplay(createForm.placa)} (${createForm.marca} ${createForm.modelo}) ha sido agregado a la flota.`
+        showSuccessModal.value = true
     } else {
         createError.value = result.error ?? 'Error desconocido.'
     }
@@ -246,6 +254,7 @@ const EMPTY_EDIT = (): VehicleEditFormData => ({
     marca: '', modelo: '', anio: new Date().getFullYear(),
     tipo: 'Camión', kilometraje: 0,
     estadoAdministrativo: 'Activo',
+    tarjetaPropiedad: '',
     soat:          { fechaExpedicion: '', fechaVencimiento: '' },
     tecnomecanica: { fechaExpedicion: '', fechaVencimiento: '' },
 })
@@ -257,6 +266,7 @@ function openEdit(v: Vehicle) {
     const soatDoc  = v.documentos.find(d => d.tipo === 'SOAT')
     const tecDoc   = v.documentos.find(d => d.tipo === 'TECNOMECANICA')
 
+    const propiedadDoc = v.documentos.find(d => d.tipo === 'TARJETA_PROPIEDAD')
     Object.assign(editForm, {
         marca:  v.marca,
         modelo: v.modelo,
@@ -264,6 +274,7 @@ function openEdit(v: Vehicle) {
         tipo:   v.tipo,
         kilometraje: v.kilometraje,
         estadoAdministrativo: v.estadoAdministrativo,
+        tarjetaPropiedad: propiedadDoc?.documentNumber ?? '',
         soat: {
             fechaExpedicion:  soatDoc?.fechaExpedicion  ?? '',
             fechaVencimiento: soatDoc?.fechaVencimiento ?? '',
@@ -322,6 +333,9 @@ async function submitEdit() {
 
     if (result.ok) {
         showEditModal.value = false
+        successTitle.value = '✓ Cambios guardados'
+        successMessage.value = `Los datos del vehículo ${formatPlacaDisplay(editingVehicle.value.placa)} han sido actualizados correctamente.`
+        showSuccessModal.value = true
     } else {
         editError.value = result.error ?? 'Error desconocido.'
     }
@@ -351,6 +365,9 @@ async function confirmSell() {
     )
     if (result.ok) {
         showSellModal.value = false
+        successTitle.value = '✓ Vehículo marcado como vendido'
+        successMessage.value = `El vehículo ${formatPlacaDisplay(sellTarget.value.placa)} ha sido retirado de la operación.`
+        showSuccessModal.value = true
         sellTarget.value    = null
         sellError.value     = ''
     } else {
@@ -523,6 +540,13 @@ const docsAlert = computed(() => {
                         {{ docVencimiento(row as Vehicle, 'TECNOMECANICA') }}
                     </span>
                 </div>
+            </template>
+
+            <!-- Tarjeta de propiedad -->
+            <template #cell-tarjetaPropiedad="{ row }">
+                <span class="font-mono text-slate-700 text-xs">
+                    {{ (row as Vehicle).tarjetaPropiedad || '—' }}
+                </span>
             </template>
 
             <!-- Conductor -->
@@ -710,6 +734,19 @@ const docsAlert = computed(() => {
                     </div>
                 </div>
 
+                <!-- Tarjeta de propiedad -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">Número tarjeta de propiedad</label>
+                    <input
+                        v-model.trim="createForm.tarjetaPropiedad"
+                        maxlength="50"
+                        type="text"
+                        class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
+                            focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                        placeholder="Ej: TP-12345678"
+                    />
+                </div>
+
                 <!-- Estado inicial (informativo) -->
                 <div class="p-3 bg-blue-50 rounded-lg border border-blue-100">
                     <p class="text-xs text-blue-700">
@@ -743,6 +780,7 @@ const docsAlert = computed(() => {
                             />
                         </div>
                     </div>
+                    
                 </div>
 
                 <!-- Tecnomecánica -->
@@ -770,6 +808,7 @@ const docsAlert = computed(() => {
                             />
                         </div>
                     </div>
+                    
                 </div>
 
                 <!-- Error -->
@@ -901,6 +940,19 @@ const docsAlert = computed(() => {
                     </p>
                 </div>
 
+                <!-- Tarjeta de propiedad -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1.5">Número tarjeta de propiedad</label>
+                    <input
+                        v-model.trim="editForm.tarjetaPropiedad"
+                        maxlength="50"
+                        type="text"
+                        class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white
+                            focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                        placeholder="Ej: TP-12345678"
+                    />
+                </div>
+
                 <!-- SOAT -->
                 <div class="border-t border-slate-100 pt-4">
                     <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">SOAT</p>
@@ -924,6 +976,7 @@ const docsAlert = computed(() => {
                             />
                         </div>
                     </div>
+                    
                 </div>
 
                 <!-- Tecnomecánica -->
@@ -949,6 +1002,7 @@ const docsAlert = computed(() => {
                             />
                         </div>
                     </div>
+                    
                 </div>
 
                 <!-- Error -->
@@ -1008,6 +1062,46 @@ const docsAlert = computed(() => {
                         class="px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                         @click="confirmSell"
                     >Sí, marcar como vendido</button>
+                </div>
+            </template>
+        </BaseModal>
+
+        <!-- ══════════════════════════════════════════════════════
+            MODAL DE ÉXITO
+        ══════════════════════════════════════════════════════ -->
+        <BaseModal
+            :show="showSuccessModal"
+            title=""
+            size="sm"
+            @close="showSuccessModal = false"
+        >
+            <div class="space-y-4 text-center">
+                <!-- Ícono de éxito -->
+                <div class="flex justify-center">
+                    <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <!-- Título -->
+                <h3 class="text-lg font-semibold text-slate-800">
+                    {{ successTitle }}
+                </h3>
+                
+                <!-- Mensaje -->
+                <p class="text-sm text-slate-600">
+                    {{ successMessage }}
+                </p>
+            </div>
+
+            <template #footer>
+                <div class="flex justify-center">
+                    <button
+                        class="px-6 py-2 text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors shadow-sm"
+                        @click="showSuccessModal = false"
+                    >Entendido</button>
                 </div>
             </template>
         </BaseModal>

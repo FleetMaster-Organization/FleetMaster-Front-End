@@ -24,6 +24,7 @@ import { api } from '@/utils/api'
  *   - Vigente:    expiration_date > hoy + 30 días
  */
 function calcDocumentLegalStatus(fechaVencimiento: string): DocumentLegalStatus {
+    if (!fechaVencimiento) return 'Vigente'
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const expiration = new Date(fechaVencimiento)
@@ -158,17 +159,21 @@ export const useVehiclesStore = defineStore('vehicles', () => {
                 try {
                     const docsRes = await api.get<any[]>(`/vehicles/${v.id}/documents`)
                     docs = docsRes.data.map((doc: any) => ({
-                        id: doc.id,
-                        vehiculoId: doc.vehicleId,
-                        tipo: doc.documentType === 'SOAT' ? 'SOAT' : 'TECNOMECANICA',
-                        fechaExpedicion: parseBackendDate(doc.issueDate),
-                        fechaVencimiento: parseBackendDate(doc.expirationDate),
-                        estadoLegal: mapLegalStatus(doc.legalStatus)
-                    }))
+                            id: doc.id,
+                            vehiculoId: doc.vehicleId,
+                            tipo: doc.documentType === 'SOAT'
+                                ? 'SOAT'
+                                : (doc.documentType === 'TARJETA_PROPIEDAD' ? 'TARJETA_PROPIEDAD' : 'TECNOMECANICA'),
+                            documentNumber: doc.documentNumber,
+                            fechaExpedicion: parseBackendDate(doc.issueDate),
+                            fechaVencimiento: parseBackendDate(doc.expirationDate),
+                            estadoLegal: mapLegalStatus(doc.legalStatus)
+                        }))
                 } catch (e) {
                     console.error(`Error loading documents for vehicle ${v.plate}:`, e)
                 }
 
+                const propiedadDoc = docs.find(d => d.tipo === 'TARJETA_PROPIEDAD')
                 return {
                     id: v.id,
                     vin: v.vin,
@@ -180,6 +185,7 @@ export const useVehiclesStore = defineStore('vehicles', () => {
                     estadoOperativo: mapOperationalStatus(v.operationalStatus),
                     estadoAdministrativo: mapAdministrativeStatus(v.administrativeStatus),
                     kilometraje: v.currentKm,
+                    tarjetaPropiedad: propiedadDoc?.documentNumber || v.propertyCardNumber || v.property_card_number || v.property_card || '',
                     conductorAsignadoId: null, // hydrated by assignments or by app setup
                     conductorAsignadoNombre: null,
                     documentos: docs,
@@ -251,6 +257,15 @@ export const useVehiclesStore = defineStore('vehicles', () => {
                 expirationDate: data.tecnomecanica.fechaVencimiento
             })
 
+            // 4. Agregar tarjeta de propiedad como documento independiente
+            if (data.tarjetaPropiedad) {
+                await api.post(`/vehicles/${vehicleId}/documents`, {
+                    documentType: 'TARJETA_PROPIEDAD',
+                    documentNumber: data.tarjetaPropiedad,
+                    issuedBy: 'Registro de Vehículos'
+                })
+            }
+
             await loadVehicles()
 
             audit.log({
@@ -301,6 +316,19 @@ export const useVehiclesStore = defineStore('vehicles', () => {
                         issuedBy: 'CDA Autorizado',
                         issueDate: data.tecnomecanica.fechaExpedicion,
                         expirationDate: data.tecnomecanica.fechaVencimiento
+                    })
+                }
+                const propiedadDoc = localVehicle.documentos.find(d => d.tipo === 'TARJETA_PROPIEDAD')
+                if (propiedadDoc) {
+                    await api.patch(`/vehicles/${id}/document/${propiedadDoc.id}/renew`, {
+                        documentNumber: data.tarjetaPropiedad,
+                        issuedBy: 'Registro de Vehículos'
+                    })
+                } else if (data.tarjetaPropiedad) {
+                    await api.post(`/vehicles/${id}/documents`, {
+                        documentType: 'TARJETA_PROPIEDAD',
+                        documentNumber: data.tarjetaPropiedad,
+                        issuedBy: 'Registro de Vehículos'
                     })
                 }
             }
