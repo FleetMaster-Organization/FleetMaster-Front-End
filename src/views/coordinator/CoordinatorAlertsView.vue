@@ -21,7 +21,10 @@ const alertsStore = useAlertsStore()
 const authStore   = useAuthStore()
 
 // ─── Lifecycle ─────────────────────────────────────────────────
-onMounted(() => { alertsStore.cleanStaleManagedIds() })
+onMounted(async () => {
+    alertsStore.cleanStaleManagedIds()
+    await alertsStore.loadAlerts()
+})
 
 // ─── Filters ───────────────────────────────────────────────────
 const search           = ref('')

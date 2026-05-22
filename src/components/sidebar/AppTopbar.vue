@@ -1,14 +1,41 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { useAlertsStore } from '@/stores/alerts'
+import { useAuthStore } from '@/stores/auth'
 
 defineProps<{ sidebarCollapsed: boolean }>()
 const emit = defineEmits<{ (e: 'toggleSidebar'): void }>()
 
 const route = useRoute()
-const notificationsCount = ref(3)
+const alertsStore = useAlertsStore()
+const authStore = useAuthStore()
+
 const showNotifications = ref(false)
+
+onMounted(async () => {
+    if (authStore.isAuthenticated) {
+        await alertsStore.loadAlerts()
+    }
+})
+
+const notificationsCount = computed(() => alertsStore.pendientes.length)
+const userRole = computed(() => authStore.user?.role ?? 'coordinator')
+
+const dropdownNotifications = computed(() => {
+    return alertsStore.pendientes.slice(0, 3).map(a => ({
+        id: a.id,
+        title: `${a.tipo} - ${a.entidadNombre}`,
+        subtitle: a.diasRestantes < 0 
+            ? `Venció hace ${Math.abs(a.diasRestantes)} días` 
+            : `Vence en ${a.diasRestantes} días`
+    }))
+})
+
+const alertsLink = computed(() => 
+    userRole.value === 'admin' ? '/admin/alertas' : '/coordinator/alertas'
+)
 
 const routeTitles: Record<string, string> = {
     'admin-dashboard': 'Home',
@@ -17,15 +44,17 @@ const routeTitles: Record<string, string> = {
     'admin-asignaciones': 'Asignaciones',
     'admin-mantenimiento': 'Mantenimiento',
     'admin-alertas': 'Alertas',
-    'admin-auditoria': 'Auditoría',
     'admin-usuarios': 'Usuarios',
+    'coordinator-dashboard': 'Home',
+    'coordinator-vehiculos': 'Vehículos',
+    'coordinator-conductores': 'Conductores',
+    'coordinator-asignaciones': 'Asignaciones',
+    'coordinator-alertas': 'Alertas',
 }
 
 const pageTitle = computed(() =>
     routeTitles[route.name as string] ?? 'Dashboard'
 )
-
-import { computed } from 'vue'
 </script>
 
 <template>
@@ -74,21 +103,16 @@ import { computed } from 'vue'
                 <p class="text-sm font-semibold text-gray-800">Notificaciones</p>
                 </div>
                 <div class="divide-y divide-gray-50">
-                <div class="px-4 py-3 hover:bg-gray-50">
-                    <p class="text-sm font-medium text-gray-800">SOAT próximo a vencer</p>
-                    <p class="text-xs text-gray-400 mt-0.5">Vehículo ABC123 · 3 días</p>
+                <div v-for="notif in dropdownNotifications" :key="notif.id" class="px-4 py-3 hover:bg-gray-50">
+                    <p class="text-sm font-medium text-gray-800">{{ notif.title }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">{{ notif.subtitle }}</p>
                 </div>
-                <div class="px-4 py-3 hover:bg-gray-50">
-                    <p class="text-sm font-medium text-gray-800">Técnico asignado</p>
-                    <p class="text-xs text-gray-400 mt-0.5">Orden #482 · Hace 1 hora</p>
-                </div>
-                <div class="px-4 py-3 hover:bg-gray-50">
-                    <p class="text-sm font-medium text-gray-800">Revisión técnica vence</p>
-                    <p class="text-xs text-gray-400 mt-0.5">Vehículo XYZ789 · 7 días</p>
+                <div v-if="dropdownNotifications.length === 0" class="px-4 py-6 text-center text-xs text-gray-400">
+                    No hay alertas pendientes
                 </div>
                 </div>
                 <div class="px-4 py-3 border-t border-gray-50 text-center">
-                <RouterLink to="/admin/alertas" class="text-xs font-semibold text-blue-600 hover:underline" @click="showNotifications = false">
+                <RouterLink :to="alertsLink" class="text-xs font-semibold text-blue-600 hover:underline" @click="showNotifications = false">
                     Ver todas las alertas →
                 </RouterLink>
                 </div>
