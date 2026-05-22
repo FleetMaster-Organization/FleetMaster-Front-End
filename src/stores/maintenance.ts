@@ -53,7 +53,7 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
                     kilometrajeSalida: item.endKm || null,
                     costo: Number(item.cost) || 0,
                     comentariosCierre: item.endDate ? (item.observations || '') : null,
-                    proximoMantenimiento: null,
+                    proximoMantenimiento: item.nextScheduledDate || null,
                     estado: item.endDate ? 'Cerrado' : 'Abierto',
                     tecnico: item.mechanicalWorkshop || 'Taller Autorizado',
                 } as MaintenanceRecord
@@ -160,7 +160,8 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
             await api.patch(`/maintenances/${id}`, {
                 endKm: data.kilometrajeSalida,
                 endDate: data.fechaSalida,
-                observations: data.comentariosCierre || 'Mantenimiento finalizado exitosamente'
+                observations: data.comentariosCierre || 'Mantenimiento finalizado exitosamente',
+                nextScheduledDate: data.proximoMantenimiento || null,
             })
 
             records.value[idx] = {
@@ -180,7 +181,7 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
                 entidad: `Vehículo ${record.vehiculoPlaca}`,
                 detalle: `Mantenimiento cerrado. Km salida: ${data.kilometrajeSalida}${
                     data.comentariosCierre ? ` — ${data.comentariosCierre}` : ''
-                }`,
+                }${data.proximoMantenimiento ? ` | Próxima cita: ${data.proximoMantenimiento}` : ''}`,
             })
 
             return { success: true }
